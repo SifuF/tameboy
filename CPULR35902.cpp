@@ -53,10 +53,12 @@ void CPULR35902::fetchDecodeExecute() {
     std::cout << static_cast<int>(instruction) << std::endl;
 
     if(instruction == 0xCB) {
-        prefixHandler[instruction];
+        const auto prefixInstruction = bus->read<uint8_t>(PC.w);
+        PC.w++;
+        prefixHandler[prefixInstruction];
     }
     else {
-       opcodeHandler[instruction];
+        opcodeHandler[instruction];
     }
 }
 
