@@ -19,28 +19,33 @@ public:
     void write(uint16_t addr, T value);
 
 private:
-    void printRom();
+    void readFile(char* buffer, const char* filename);
+    void printMap(uint16_t offset, uint16_t lines);
 
-    std::unique_ptr<unsigned char[]> map = nullptr;
+    bool bootRom = true;
+    std::unique_ptr<uint8_t[]> m_boot = nullptr;
+    std::unique_ptr<uint8_t[]> m_map = nullptr;
     CPULR35902 cpu;
-
 };
 
 template<typename T>
 T Bus::read(uint16_t addr) {
-    if(sizeof(T)==1) {
+    auto & map = (bootRom && (addr < 0x100)) ? m_boot : m_map;   
+   
+    if(sizeof(T)==1) { 
         return map[addr];
     }
     else {
         return static_cast<T>((map[addr] << 8 ) | map[addr + 1]);
     }
-}
+}  
 
 template<typename T>
 void Bus::write(uint16_t addr, T value) {
    if(addr < 0x8000)
        return;
-
+   
+   const auto & map = m_map;
    if(sizeof(T)==1) {
        	map[addr] = value;
    }
@@ -49,4 +54,3 @@ void Bus::write(uint16_t addr, T value) {
        map[addr + 1] = static_cast<uint8_t>(value);  
    }
 }
-
