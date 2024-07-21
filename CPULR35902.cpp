@@ -28,10 +28,10 @@ void CPULR35902::clearFlags() {
 
 void CPULR35902::setFlag(Flag flag) {
     switch(flag) {
-        case Flag::Z : { AF.lsb = AF.lsb | 0b10000000; break; }
-        case Flag::N : { AF.lsb = AF.lsb | 0b01000000; break; }
-        case Flag::H : { AF.lsb = AF.lsb | 0b00100000; break; }
-	    case Flag::C : { AF.lsb = AF.lsb | 0b00010000; break; }
+        case Flag::Z : { AF.lsb |= 0b10000000; break; }
+        case Flag::N : { AF.lsb |= 0b01000000; break; }
+        case Flag::H : { AF.lsb |= 0b00100000; break; }
+	    case Flag::C : { AF.lsb |= 0b00010000; break; }
         default : { throw std::runtime_error("Invalid flag set!"); }
     }
 }
