@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <functional>
+#include <string>
 
 class Bus;
 
@@ -22,22 +23,16 @@ public:
     void fetchDecodeExecute();
 
 private:
-    void clearFlags();
-    void setFlag(Flag flag);
+    void setFlags(int Z, int N, int H, int C);
     bool getFlag(Flag flag);
-    
+    std::string toHexString(int value);
     void initOpcodeHandlers();
 
     union Register {
         uint16_t w;
 	    struct {
-#if defined(BIG_ENDIAN)
-	        uint8_t msb; 
-	        uint8_t lsb;
-#else
-            uint8_t lsb;
-	        uint8_t msb;
-#endif
+            uint8_t right;
+	        uint8_t left;
 	    };
     };
     Register AF;
@@ -47,6 +42,9 @@ private:
     Register SP;
     Register PC;
 
+    unsigned long long T = 0;
+    bool halt = false;
+ 
     Bus* bus;
 
     std::array<std::function<void()>, 256> opcodeHandler;

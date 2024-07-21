@@ -21,6 +21,7 @@ public:
 private:
     void readFile(char* buffer, const char* filename);
     void printMap(uint16_t offset, uint16_t lines);
+    void parseHeader();
 
     bool bootRom = true;
     std::unique_ptr<uint8_t[]> m_boot = nullptr;
@@ -36,7 +37,7 @@ T Bus::read(uint16_t addr) {
         return map[addr];
     }
     else {
-        return static_cast<T>((map[addr] << 8 ) | map[addr + 1]);
+        return static_cast<T>(map[addr]) | (map[addr + 1] << 8);
     }
 }  
 

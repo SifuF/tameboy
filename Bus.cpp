@@ -8,6 +8,7 @@ Bus::Bus() : m_boot(std::make_unique<uint8_t[]>(0x100)),
     readFile((char*)m_boot.get(), "roms/DMG_ROM.bin");
     readFile((char*)m_map.get(), "roms/tetris.bin");
     
+    parseHeader();
     printMap(0x0, 4);
 }
 
@@ -16,9 +17,9 @@ Bus::~Bus() {
 }
 
 void Bus::start() {
-   //while(true) {
+   while(true) {
        cpu.fetchDecodeExecute();
-   //}
+   }
 }
 
 void Bus::readFile(char* buffer, const char* filename) {
@@ -42,4 +43,13 @@ void Bus::printMap(uint16_t offset, uint16_t lines) {
         std::cout << std::endl;
     }
     std::cout << std::endl;
+}
+
+void Bus::parseHeader() {
+    for(int i=0; i<48; ++i) {
+        if(m_map[0x104 + i] != m_boot[0xA8 + i]) {
+            std::cout << i << " ";
+            throw std::runtime_error("Logos don't match!");
+        }
+    }
 }
