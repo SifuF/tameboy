@@ -92,23 +92,32 @@ std::string CPULR35902::toHexString(int value) {
     return ss.str();
 }
 
-void CPULR35902::OP_00() { // NOP
+void CPULR35902::OP_00() {
     T += 4;
     LOG("NOP")
 }
-void CPULR35902::OP_01() { // LD BC, n16
+void CPULR35902::OP_01() {
     T += 12;
     BC.w = bus->read<uint16_t>(PC.w);
     PC.w += 2;
     LOG("LD BC, $" + toHexString(BC.w))    
 }
-void CPULR35902::OP_02() { // LD [BC], A
+void CPULR35902::OP_02() {
     T += 8;
     bus->write<uint8_t>(BC.w, AF.left);
     LOG("LD (BC), A")
 }
-void CPULR35902::OP_03() {}
-void CPULR35902::OP_04() {}
+void CPULR35902::OP_03() {
+    T += 8;
+    BC.w++;
+    LOG("INC BC")
+}
+void CPULR35902::OP_04() {
+    T += 4;
+    BC.left++;
+    setFlags((BC.left == 0), 0, (BC.left == 16), -1);
+    LOG("INC B")
+}
 void CPULR35902::OP_05() {}
 void CPULR35902::OP_06() {}
 void CPULR35902::OP_07() {}
