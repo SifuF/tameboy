@@ -114,17 +114,43 @@ void CPULR35902::OP_03() {
 }
 void CPULR35902::OP_04() {
     T += 4;
+    const bool H = BC.left & 
     BC.left++;
-    setFlags((BC.left == 0), 0, (BC.left == 16), -1);
+    setFlags((BC.left == 0), 0, H, -1);
     LOG("INC B")
 }
 void CPULR35902::OP_05() {}
-void CPULR35902::OP_06() {}
-void CPULR35902::OP_07() {}
-void CPULR35902::OP_08() {}
+void CPULR35902::OP_06() {
+    T += 8;
+    BC.left = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    LOG("LD B, " + toHexString(BC.left))
+}
+void CPULR35902::OP_07() { // TODO Check Z flag
+    T += 4;
+    const uint8_t msb = AF.left >> 7;
+    setFlags(0, 0, 0, msb);
+    AF.left = (AF.left << 1) | msb;
+    LOG("RLCA")
+}
+void CPULR35902::OP_08() {
+    T += 20;
+    const auto addr = bus->read<uint16_t>(PC.w);
+    PC.w += 2;
+    bus->write<uint16_t>(addr, SP.w);
+    LOG("LD ($" + toHexString(addr) + ") ,SP")
+}
 void CPULR35902::OP_09() {}
-void CPULR35902::OP_0A() {}
-void CPULR35902::OP_0B() {}
+void CPULR35902::OP_0A() {
+    T += 8;
+    AF.left = bus->read<uint8_t>(BC.w);
+    LOG("LD A, (BC)")
+}
+void CPULR35902::OP_0B() {
+    T += 8;
+    BC.w--;
+    LOG("DEC BC")
+}
 void CPULR35902::OP_0C() {}
 void CPULR35902::OP_0D() {}
 void CPULR35902::OP_0E() { // LD c, n8
@@ -133,23 +159,86 @@ void CPULR35902::OP_0E() { // LD c, n8
     PC.w++;
     LOG("LD C, $" + toHexString(BC.right));
 }
-void CPULR35902::OP_0F() {}
-void CPULR35902::OP_10() {}
-void CPULR35902::OP_11() {}
-void CPULR35902::OP_12() {}
-void CPULR35902::OP_13() {}
+void CPULR35902::OP_0F() {
+    T += 4;
+    const uint8_t lsb = AF.left & 0x01;
+    setFlags(0, 0, 0, lsb);
+    AF.left = (AF.left >> 1) | (lsb << 7);
+    LOG("RRCA")
+}
+void CPULR35902::OP_10() {
+    T += 4;
+    stop = true;
+    const auto value = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    LOG("STOP " + toHexString(value));
+}
+void CPULR35902::OP_11() {
+    T += 12;
+    DE.w = bus->read<uint16_t>(PC.w);
+    PC.w += 2;
+    LOG("LD DE, $" + toHexString(DE.w)) 
+}
+void CPULR35902::OP_12() {
+    T += 8;
+    bus->write<uint8_t>(DE.w, AF.left);
+    LOG("LD (DE), A")
+}
+void CPULR35902::OP_13() {
+    T += 8;
+    DE.w++;
+    LOG("INC DE")
+}
 void CPULR35902::OP_14() {}
 void CPULR35902::OP_15() {}
-void CPULR35902::OP_16() {}
-void CPULR35902::OP_17() {}
-void CPULR35902::OP_18() {}
+void CPULR35902::OP_16() {
+    T += 8;
+    DE.left = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    LOG("LD D, " + toHexString(DE.left))
+}
+void CPULR35902::OP_17() {
+    T += 4;
+    const uint8_t carry = static_cast<uint8_t>(getFlag(Flag::C));
+    const bool msb = AF.left >> 7;
+    setFlags(0, 0, 0, msb);
+    AF.left = (AF.left << 1) | carry;
+    LOG("RLA")
+}
+void CPULR35902::OP_18() {
+    T += 12;
+    const auto relative = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    PC.w += relative;
+    LOG("JP $" + toHexString(relative))
+}
 void CPULR35902::OP_19() {}
-void CPULR35902::OP_1A() {}
-void CPULR35902::OP_1B() {}
+void CPULR35902::OP_1A() {
+    T += 8;
+    AF.left = bus->read<uint8_t>(DE.w);
+    LOG("LD A, (DE)")
+}
+void CPULR35902::OP_1B() {
+    T += 8;
+    DE.w--;
+    LOG("DEC DE")
+}
 void CPULR35902::OP_1C() {}
 void CPULR35902::OP_1D() {}
-void CPULR35902::OP_1E() {}
-void CPULR35902::OP_1F() {}
+void CPULR35902::OP_1E() {
+    T += 8;
+    DE.right = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    LOG("LD E, $" + toHexString(DE.right));
+}
+void CPULR35902::OP_1F() {
+    T += 4;
+    const uint8_t carry = static_cast<uint8_t>(getFlag(Flag::C));
+    const bool lsb = AF.left & 0x01;
+    setFlags(0, 0, 0, lsb);
+    AF.left = (AF.left >> 1) | (carry << 7);
+    LOG("RRA")
+}
 void CPULR35902::OP_20() { // JP NZ, e8
     const auto relative = bus->read<uint8_t>(PC.w);
     PC.w++;
@@ -159,7 +248,7 @@ void CPULR35902::OP_20() { // JP NZ, e8
     }
     else {
         T += 12;
-        PC.w += static_cast<int8_t>(relative);
+        PC.w += relative;
     }
     LOG("JP NZ, $" + toHexString(relative))
 }
@@ -169,46 +258,148 @@ void CPULR35902::OP_21() { // LD HL, n16
     PC.w += 2;
     LOG("LD HL, $" + toHexString(HL.w));
 }
-void CPULR35902::OP_22() {}
-void CPULR35902::OP_23() {}
+void CPULR35902::OP_22() {
+    T += 8;
+    bus->write<uint8_t>(HL.w, AF.left);
+    HL.w++;
+    LOG("LD (HL+), A")
+}
+void CPULR35902::OP_23() {
+    T += 8;
+    HL.w++;
+    LOG("INC HL")
+}
 void CPULR35902::OP_24() {}
 void CPULR35902::OP_25() {}
-void CPULR35902::OP_26() {}
+void CPULR35902::OP_26() {
+    T += 8;
+    HL.left = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    LOG("LD H, " + toHexString(HL.left))
+}
 void CPULR35902::OP_27() {}
-void CPULR35902::OP_28() {}
+void CPULR35902::OP_28() {
+    const auto relative = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    const bool zero = getFlag(Flag::Z); 
+    if(zero) {
+        T += 12;
+        PC.w += relative;
+    }
+    else {
+        T += 8;
+    }
+    LOG("JP Z, $" + toHexString(relative))
+}
 void CPULR35902::OP_29() {}
-void CPULR35902::OP_2A() {}
-void CPULR35902::OP_2B() {}
+void CPULR35902::OP_2A() {
+    T += 8;
+    AF.left = bus->read<uint8_t>(HL.w);
+    HL.w++;
+    LOG("LD A, (HL+)")
+}
+void CPULR35902::OP_2B() {
+    T += 8;
+    HL.w--;
+    LOG("DEC HL")
+}
 void CPULR35902::OP_2C() {}
 void CPULR35902::OP_2D() {}
-void CPULR35902::OP_2E() {}
-void CPULR35902::OP_2F() {}
-void CPULR35902::OP_30() {}
-void CPULR35902::OP_31() { // LD SP, n16
+void CPULR35902::OP_2E() {
+    T += 8;
+    HL.right = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    LOG("LD L, $" + toHexString(HL.right));
+}
+void CPULR35902::OP_2F() {
+    T += 4;
+    AF.left = ~AF.left;
+    setFlags(-1, 1, 1, -1);
+    LOG("CPL")
+}
+void CPULR35902::OP_30() {
+    const auto relative = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    const bool carry = getFlag(Flag::C); 
+    if(carry) {
+        T += 8;
+    }
+    else {
+        T += 12;
+        PC.w += relative;
+    }
+    LOG("JP NC, $" + toHexString(relative))
+}
+void CPULR35902::OP_31() {
     T += 12;
     SP.w = bus->read<uint16_t>(PC.w);
     PC.w += 2;
     LOG("LD SP, $" + toHexString(SP.w))
 }
-void CPULR35902::OP_32() { // LD [HL-], A
+void CPULR35902::OP_32() {
+    T += 8;
+    HL.w--;
+    bus->write<uint8_t>(HL.w, AF.left);
+    LOG("LD (HL-), A")
+}
+void CPULR35902::OP_33() {
+    T += 8;
+    SP.w++;
+    LOG("INC SP")
+}
+void CPULR35902::OP_34() {}
+void CPULR35902::OP_35() {}
+void CPULR35902::OP_36() {
+    T += 12;
+    const auto value  = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    bus->write<uint8_t>(HL.w, value);
+    LOG("LD (HL), " + toHexString(BC.left))
+}
+void CPULR35902::OP_37() {
+    T += 4;
+    setFlags(-1, 0, 0, 1);
+    LOG("SCF")
+}
+void CPULR35902::OP_38() {
+    const auto relative = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    const bool carry = getFlag(Flag::C); 
+    if(carry) {
+        T += 12;
+        PC.w += relative;
+    }
+    else {
+        T += 8;
+    }
+    LOG("JP C, $" + toHexString(relative))
+
+}
+void CPULR35902::OP_39() {}
+void CPULR35902::OP_3A() {
     T += 8;
     HL.w--;
     AF.left = bus->read<uint8_t>(HL.w);
-    LOG("LD (HL-), A")
+    LOG("LD A, (HL-)")
 }
-void CPULR35902::OP_33() {}
-void CPULR35902::OP_34() {}
-void CPULR35902::OP_35() {}
-void CPULR35902::OP_36() {}
-void CPULR35902::OP_37() {}
-void CPULR35902::OP_38() {}
-void CPULR35902::OP_39() {}
-void CPULR35902::OP_3A() {}
-void CPULR35902::OP_3B() {}
+void CPULR35902::OP_3B() {
+    T += 8;
+    SP.w--;
+    LOG("DEC SP")
+}
 void CPULR35902::OP_3C() {}
 void CPULR35902::OP_3D() {}
-void CPULR35902::OP_3E() {}
-void CPULR35902::OP_3F() {}
+void CPULR35902::OP_3E() {
+    T += 8;
+    AF.left = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    LOG("LD A, $" + toHexString(AF.left));
+}
+void CPULR35902::OP_3F() {
+    T += 4;
+    setFlags(-1, 0, 0, 0);
+    LOG("CCF")
+}
 void CPULR35902::OP_40() {
     T += 4;
     LOG("LD B, B")
@@ -556,35 +747,148 @@ void CPULR35902::OP_9C() {}
 void CPULR35902::OP_9D() {}
 void CPULR35902::OP_9E() {}
 void CPULR35902::OP_9F() {}
-void CPULR35902::OP_A0() {}
-void CPULR35902::OP_A1() {}
-void CPULR35902::OP_A2() {}
-void CPULR35902::OP_A3() {}
-void CPULR35902::OP_A4() {}
-void CPULR35902::OP_A5() {}
-void CPULR35902::OP_A6() {}
-void CPULR35902::OP_A7() {}
-void CPULR35902::OP_A8() {}
-void CPULR35902::OP_A9() {}
-void CPULR35902::OP_AA() {}
-void CPULR35902::OP_AB() {}
-void CPULR35902::OP_AC() {}
-void CPULR35902::OP_AD() {}
-void CPULR35902::OP_AE() {}
-void CPULR35902::OP_AF() { // XOR A, A
+void CPULR35902::OP_A0() {
+    T += 4;
+    AF.left &= BC.left;
+    setFlags((AF.left == 0), 0, 1, 0);
+    LOG("AND A, B")
+}
+void CPULR35902::OP_A1() {
+    T += 4;
+    AF.left &= BC.right;
+    setFlags((AF.left == 0), 0, 1, 0);
+    LOG("AND A, C")
+}
+void CPULR35902::OP_A2() {
+    T += 4;
+    AF.left &= DE.left;
+    setFlags((AF.left == 0), 0, 1, 0);
+    LOG("AND A, D")
+}
+void CPULR35902::OP_A3() {
+    T += 4;
+    AF.left &= DE.right;
+    setFlags((AF.left == 0), 0, 1, 0);
+    LOG("AND A, E")
+}
+void CPULR35902::OP_A4() {
+    T += 4;
+    AF.left &= HL.left;
+    setFlags((AF.left == 0), 0, 1, 0);
+    LOG("AND A, H")
+}
+void CPULR35902::OP_A5() {
+    T += 4;
+    AF.left &= HL.right;
+    setFlags((AF.left == 0), 0, 1, 0);
+    LOG("AND A, L")
+}
+void CPULR35902::OP_A6() {
+    T += 8;
+    AF.left &= bus->read<uint8_t>(HL.w);
+    setFlags((AF.left == 0), 0, 1, 0);
+    LOG("AND A, (HL)")
+}
+void CPULR35902::OP_A7() {
+    T += 4;
+    setFlags((AF.left == 0), 0, 1, 0);
+    LOG("AND A, A")
+}
+void CPULR35902::OP_A8() {
+    T += 4;
+    AF.left ^= BC.left;
+    setFlags((AF.left == 0), 0, 0, 0);
+    LOG("XOR A, B")
+}
+void CPULR35902::OP_A9() {    
+    T += 4;
+    AF.left ^= BC.right;
+    setFlags((AF.left == 0), 0, 0, 0);
+    LOG("XOR A, C")
+}
+void CPULR35902::OP_AA() {
+    T += 4;
+    AF.left ^= DE.left;
+    setFlags((AF.left == 0), 0, 0, 0);
+    LOG("XOR A, D")
+}
+void CPULR35902::OP_AB() {
+    T += 4;
+    AF.left ^= DE.right;
+    setFlags((AF.left == 0), 0, 0, 0);
+    LOG("XOR A, E")
+}
+void CPULR35902::OP_AC() {
+    T += 4;
+    AF.left ^= HL.left;
+    setFlags((AF.left == 0), 0, 0, 0);
+    LOG("XOR A, H")
+}
+void CPULR35902::OP_AD() {
+    T += 4;
+    AF.left ^= HL.right;
+    setFlags((AF.left == 0), 0, 0, 0);
+    LOG("XOR A, L")
+}
+void CPULR35902::OP_AE() {
+    T += 8;
+    AF.left ^= bus->read<uint8_t>(HL.w);
+    setFlags((AF.left == 0), 0, 0, 0);
+    LOG("XOR A, (HL)")
+}
+void CPULR35902::OP_AF() {
     T += 4;
     AF.left ^= AF.left;
     setFlags(1, 0, 0, 0);
     LOG("XOR A, A")
 }
-void CPULR35902::OP_B0() {}
-void CPULR35902::OP_B1() {}
-void CPULR35902::OP_B2() {}
-void CPULR35902::OP_B3() {}
-void CPULR35902::OP_B4() {}
-void CPULR35902::OP_B5() {}
-void CPULR35902::OP_B6() {}
-void CPULR35902::OP_B7() {}
+void CPULR35902::OP_B0() {
+    T += 4;
+    AF.left |= BC.left;
+    setFlags((AF.left == 0), 0, 0, 0);
+    LOG("OR A, B")
+}
+void CPULR35902::OP_B1() {
+    T += 4;
+    AF.left |= BC.right;
+    setFlags((AF.left == 0), 0, 0, 0);
+    LOG("OR A, C")
+}
+void CPULR35902::OP_B2() {
+    T += 4;
+    AF.left |= DE.left;
+    setFlags((AF.left == 0), 0, 0, 0);
+    LOG("OR A, D")
+}
+void CPULR35902::OP_B3() {
+    T += 4;
+    AF.left |= DE.right;
+    setFlags((AF.left == 0), 0, 0, 0);
+    LOG("OR A, E")
+}
+void CPULR35902::OP_B4() {
+    T += 4;
+    AF.left |= HL.left;
+    setFlags((AF.left == 0), 0, 0, 0);
+    LOG("OR A, H")
+}
+void CPULR35902::OP_B5() {
+    T += 4;
+    AF.left |= HL.right;
+    setFlags((AF.left == 0), 0, 0, 0);
+    LOG("OR A, L")
+}
+void CPULR35902::OP_B6() {
+    T += 8;
+    AF.left |= bus->read<uint8_t>(HL.w);
+    setFlags((AF.left == 0), 0, 0, 0);
+    LOG("OR A, (HL)")
+}
+void CPULR35902::OP_B7() {
+    T += 4;
+    setFlags((AF.left == 0), 0, 0, 0);
+    LOG("OR A, A")
+}
 void CPULR35902::OP_B8() {}
 void CPULR35902::OP_B9() {}
 void CPULR35902::OP_BA() {}
