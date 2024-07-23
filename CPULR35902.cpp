@@ -66,7 +66,7 @@ bool CPULR35902::getFlag(Flag flag) {
 }
 
 void CPULR35902::fetchDecodeExecute() {
-    if(halt)
+    if(halt || stop)
         return;
 
     const auto instruction = bus->read<uint8_t>(PC.w);
@@ -114,12 +114,18 @@ void CPULR35902::OP_03() {
 }
 void CPULR35902::OP_04() {
     T += 4;
-    const bool H = BC.left & 
+    const bool half = (BC.left == 0xF);
     BC.left++;
-    setFlags((BC.left == 0), 0, H, -1);
+    setFlags((BC.left == 0), 0, half, -1);
     LOG("INC B")
 }
-void CPULR35902::OP_05() {}
+void CPULR35902::OP_05() {
+    T += 4;
+    const bool half = (BC.left == 0x0);
+    BC.left--;
+    setFlags((BC.left == 0), 1, half, -1);
+    LOG("DEC B")
+}
 void CPULR35902::OP_06() {
     T += 8;
     BC.left = bus->read<uint8_t>(PC.w);
@@ -140,7 +146,14 @@ void CPULR35902::OP_08() {
     bus->write<uint16_t>(addr, SP.w);
     LOG("LD ($" + toHexString(addr) + ") ,SP")
 }
-void CPULR35902::OP_09() {}
+void CPULR35902::OP_09() {
+    T += 8;
+    const bool half = (HL.right + BC.right) > 0xFF;
+    const bool carry = (HL.w + BC.w) > 0xFFFF;
+    HL.w += BC.w;
+    setFlags(-1, 0, half, carry);
+    LOG("ADD HL, BC")
+}
 void CPULR35902::OP_0A() {
     T += 8;
     AF.left = bus->read<uint8_t>(BC.w);
@@ -151,9 +164,21 @@ void CPULR35902::OP_0B() {
     BC.w--;
     LOG("DEC BC")
 }
-void CPULR35902::OP_0C() {}
-void CPULR35902::OP_0D() {}
-void CPULR35902::OP_0E() { // LD c, n8
+void CPULR35902::OP_0C() {
+    T += 4;
+    const bool half = (BC.right == 0xF);
+    BC.right++;
+    setFlags((BC.right == 0), 0, half, -1);
+    LOG("INC C")
+}
+void CPULR35902::OP_0D() {
+    T += 4;
+    const bool half = (BC.right == 0x0);
+    BC.right--;
+    setFlags((BC.right == 0), 1, half, -1);
+    LOG("DEC C")
+}
+void CPULR35902::OP_0E() {
     T += 8;
     BC.right = bus->read<uint8_t>(PC.w);
     PC.w++;
@@ -189,8 +214,20 @@ void CPULR35902::OP_13() {
     DE.w++;
     LOG("INC DE")
 }
-void CPULR35902::OP_14() {}
-void CPULR35902::OP_15() {}
+void CPULR35902::OP_14() {
+    T += 4;
+    const bool half = (DE.left == 0xF);
+    DE.left++;
+    setFlags((DE.left == 0), 0, half, -1);
+    LOG("INC D")
+}
+void CPULR35902::OP_15() {
+    T += 4;
+    const bool half = (DE.left == 0x0);
+    DE.left--;
+    setFlags((DE.left == 0), 1, half, -1);
+    LOG("DEC D")
+}
 void CPULR35902::OP_16() {
     T += 8;
     DE.left = bus->read<uint8_t>(PC.w);
@@ -212,7 +249,14 @@ void CPULR35902::OP_18() {
     PC.w += relative;
     LOG("JP $" + toHexString(relative))
 }
-void CPULR35902::OP_19() {}
+void CPULR35902::OP_19() {
+    T += 8;
+    const bool half = (HL.right + DE.right) > 0xFF;
+    const bool carry = (HL.w + DE.w) > 0xFFFF;
+    HL.w += DE.w;
+    setFlags(-1, 0, half, carry);
+    LOG("ADD HL, DE")
+}
 void CPULR35902::OP_1A() {
     T += 8;
     AF.left = bus->read<uint8_t>(DE.w);
@@ -223,8 +267,20 @@ void CPULR35902::OP_1B() {
     DE.w--;
     LOG("DEC DE")
 }
-void CPULR35902::OP_1C() {}
-void CPULR35902::OP_1D() {}
+void CPULR35902::OP_1C() {
+    T += 4;
+    const bool half = (DE.right == 0xF);
+    DE.right++;
+    setFlags((DE.right == 0), 0, half, -1);
+    LOG("INC E")
+}
+void CPULR35902::OP_1D() {
+    T += 4;
+    const bool half = (DE.right == 0x0);
+    DE.right--;
+    setFlags((DE.right == 0), 1, half, -1);
+    LOG("DEC E")
+}
 void CPULR35902::OP_1E() {
     T += 8;
     DE.right = bus->read<uint8_t>(PC.w);
@@ -269,8 +325,20 @@ void CPULR35902::OP_23() {
     HL.w++;
     LOG("INC HL")
 }
-void CPULR35902::OP_24() {}
-void CPULR35902::OP_25() {}
+void CPULR35902::OP_24() {
+    T += 4;
+    const bool half = (HL.left == 0xF);
+    HL.left++;
+    setFlags((HL.left == 0), 0, half, -1);
+    LOG("INC H")
+}
+void CPULR35902::OP_25() {
+    T += 4;
+    const bool half = (HL.left == 0x0);
+    HL.left--;
+    setFlags((HL.left == 0), 1, half, -1);
+    LOG("DEC H")
+}
 void CPULR35902::OP_26() {
     T += 8;
     HL.left = bus->read<uint8_t>(PC.w);
@@ -291,7 +359,14 @@ void CPULR35902::OP_28() {
     }
     LOG("JP Z, $" + toHexString(relative))
 }
-void CPULR35902::OP_29() {}
+void CPULR35902::OP_29() {
+    T += 8;
+    const bool half = (HL.right + HL.right) > 0xFF;
+    const bool carry = (HL.w + HL.w) > 0xFFFF;
+    HL.w += HL.w;
+    setFlags(-1, 0, half, carry);
+    LOG("ADD HL, HL")
+}
 void CPULR35902::OP_2A() {
     T += 8;
     AF.left = bus->read<uint8_t>(HL.w);
@@ -303,8 +378,20 @@ void CPULR35902::OP_2B() {
     HL.w--;
     LOG("DEC HL")
 }
-void CPULR35902::OP_2C() {}
-void CPULR35902::OP_2D() {}
+void CPULR35902::OP_2C() {
+    T += 4;
+    const bool half = (HL.right == 0xF);
+    HL.right++;
+    setFlags((HL.right == 0), 0, half, -1);
+    LOG("INC L")
+}
+void CPULR35902::OP_2D() {
+    T += 4;
+    const bool half = (HL.right == 0x0);
+    HL.right--;
+    setFlags((HL.right == 0), 1, half, -1);
+    LOG("DEC L")
+}
 void CPULR35902::OP_2E() {
     T += 8;
     HL.right = bus->read<uint8_t>(PC.w);
@@ -347,8 +434,24 @@ void CPULR35902::OP_33() {
     SP.w++;
     LOG("INC SP")
 }
-void CPULR35902::OP_34() {}
-void CPULR35902::OP_35() {}
+void CPULR35902::OP_34() {
+    T += 12;
+    auto value = bus->read<uint16_t>(HL.w);
+    const bool half = (value == 0xF);
+    value++;
+    bus->write<uint8_t>(HL.w, value);
+    setFlags((value == 0), 0, half, -1);
+    LOG("INC (HL)")
+}
+void CPULR35902::OP_35() {
+    T += 12;
+    auto value = bus->read<uint16_t>(HL.w);
+    const bool half = (value == 0x0);
+    value--;
+    bus->write<uint8_t>(HL.w, value);
+    setFlags((value == 0), 1, half, -1);
+    LOG("DEC (HL)")
+}
 void CPULR35902::OP_36() {
     T += 12;
     const auto value  = bus->read<uint8_t>(PC.w);
@@ -373,9 +476,15 @@ void CPULR35902::OP_38() {
         T += 8;
     }
     LOG("JP C, $" + toHexString(relative))
-
 }
-void CPULR35902::OP_39() {}
+void CPULR35902::OP_39() {
+    T += 8;
+    const bool half = (HL.right + SP.right) > 0xFF;
+    const bool carry = (HL.w + SP.w) > 0xFFFF;
+    HL.w += SP.w;
+    setFlags(-1, 0, half, carry);
+    LOG("ADD HL, SP")
+}
 void CPULR35902::OP_3A() {
     T += 8;
     HL.w--;
@@ -387,8 +496,20 @@ void CPULR35902::OP_3B() {
     SP.w--;
     LOG("DEC SP")
 }
-void CPULR35902::OP_3C() {}
-void CPULR35902::OP_3D() {}
+void CPULR35902::OP_3C() {
+    T += 4;
+    const bool half = (AF.left == 0xF);
+    AF.left++;
+    setFlags((AF.left == 0), 0, half, -1);
+    LOG("INC A")
+}
+void CPULR35902::OP_3D() {
+    T += 4;
+    const bool half = (AF.left == 0x0);
+    AF.left--;
+    setFlags((AF.left == 0), 1, half, -1);
+    LOG("DEC A")
+}
 void CPULR35902::OP_3E() {
     T += 8;
     AF.left = bus->read<uint8_t>(PC.w);
@@ -664,7 +785,7 @@ void CPULR35902::OP_75() {
     bus->write<uint8_t>(HL.w, HL.right);
     LOG("LD (HL), L")
 }
-void CPULR35902::OP_76() { // HALT
+void CPULR35902::OP_76() {
     T += 4;
     halt = true;
     LOG("HALT")
@@ -713,40 +834,263 @@ void CPULR35902::OP_7F() {
     T += 4;
     LOG("LD A, A")
 }
-
-
-void CPULR35902::OP_80() {}
-void CPULR35902::OP_81() {}
-void CPULR35902::OP_82() {}
-void CPULR35902::OP_83() {}
-void CPULR35902::OP_84() {}
-void CPULR35902::OP_85() {}
-void CPULR35902::OP_86() {}
-void CPULR35902::OP_87() {}
-void CPULR35902::OP_88() {}
-void CPULR35902::OP_89() {}
-void CPULR35902::OP_8A() {}
-void CPULR35902::OP_8B() {}
-void CPULR35902::OP_8C() {}
-void CPULR35902::OP_8D() {}
-void CPULR35902::OP_8E() {}
-void CPULR35902::OP_8F() {}
-void CPULR35902::OP_90() {}
-void CPULR35902::OP_91() {}
-void CPULR35902::OP_92() {}
-void CPULR35902::OP_93() {}
-void CPULR35902::OP_94() {}
-void CPULR35902::OP_95() {}
-void CPULR35902::OP_96() {}
-void CPULR35902::OP_97() {}
-void CPULR35902::OP_98() {}
-void CPULR35902::OP_99() {}
-void CPULR35902::OP_9A() {}
-void CPULR35902::OP_9B() {}
-void CPULR35902::OP_9C() {}
-void CPULR35902::OP_9D() {}
-void CPULR35902::OP_9E() {}
-void CPULR35902::OP_9F() {}
+void CPULR35902::OP_80() {
+    T += 4;
+    const bool carry = (AF.left + BC.left) > 0xFF;
+    const bool half = ((AF.left & 0xF) + (BC.left & 0xF)) > 0xF;
+    AF.left += BC.left;
+    setFlags((AF.left == 0), 0, half, carry);
+    LOG("ADD A, B")
+}
+void CPULR35902::OP_81() {
+    T += 4;
+    const bool carry = (AF.left + BC.right) > 0xFF;
+    const bool half = ((AF.left & 0xF) + (BC.right & 0xF)) > 0xF;
+    AF.left += BC.right;
+    setFlags((AF.left == 0), 0, half, carry);
+    LOG("ADD A, C")
+}
+void CPULR35902::OP_82() {
+    T += 4;
+    const bool carry = (AF.left + DE.left) > 0xFF;
+    const bool half = ((AF.left & 0xF) + (DE.left & 0xF)) > 0xF;
+    AF.left += DE.left;
+    setFlags((AF.left == 0), 0, half, carry);
+    LOG("ADD A, D")
+}
+void CPULR35902::OP_83() {
+    T += 4;
+    const bool carry = (AF.left + DE.right) > 0xFF;
+    const bool half = ((AF.left & 0xF) + (DE.right & 0xF)) > 0xF;
+    AF.left += DE.right;
+    setFlags((AF.left == 0), 0, half, carry);
+    LOG("ADD A, E")
+}
+void CPULR35902::OP_84() {
+    T += 4;
+    const bool carry = (AF.left + HL.left) > 0xFF;
+    const bool half = ((AF.left & 0xF) + (HL.left & 0xF)) > 0xF;
+    AF.left += HL.left;
+    setFlags((AF.left == 0), 0, half, carry);
+    LOG("ADD A, H")
+}
+void CPULR35902::OP_85() {
+    T += 4;
+    const bool carry = (AF.left + HL.right) > 0xFF;
+    const bool half = ((AF.left & 0xF) + (HL.right & 0xF)) > 0xF;
+    AF.left += HL.right;
+    setFlags((AF.left == 0), 0, half, carry);
+    LOG("ADD A, L")
+}
+void CPULR35902::OP_86() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    const bool carry = (AF.left + value) > 0xFF;
+    const bool half = ((AF.left & 0xF) + (value & 0xF)) > 0xF;
+    AF.left += value;
+    setFlags((AF.left == 0), 0, half, carry);
+    LOG("ADD A, (HL)")
+}
+void CPULR35902::OP_87() {
+    T += 4;
+    const bool carry = (AF.left + AF.left) > 0xFF;
+    const bool half = ((AF.left & 0xF) + (AF.left & 0xF)) > 0xF;
+    AF.left += AF.left;
+    setFlags((AF.left == 0), 0, half, carry);
+    LOG("ADD A, A")
+}
+void CPULR35902::OP_88() {
+    T += 4;
+    const bool carry = (AF.left + BC.left + getFlag(Flag::C)) > 0xFF;
+    const bool half = ((AF.left & 0xF) + (BC.left & 0xF) + getFlag(Flag::C)) > 0xF;
+    AF.left += BC.left + getFlag(Flag::C);
+    setFlags((AF.left == 0), 0, half, carry);
+    LOG("ADC A, B")
+}
+void CPULR35902::OP_89() {
+    T += 4;
+    const bool carry = (AF.left + BC.right + getFlag(Flag::C)) > 0xFF;
+    const bool half = ((AF.left & 0xF) + (BC.right & 0xF) + getFlag(Flag::C)) > 0xF;
+    AF.left += BC.right + getFlag(Flag::C);
+    setFlags((AF.left == 0), 0, half, carry);
+    LOG("ADC A, C")
+}
+void CPULR35902::OP_8A() {
+    T += 4;
+    const bool carry = (AF.left + DE.left + getFlag(Flag::C)) > 0xFF;
+    const bool half = ((AF.left & 0xF) + (DE.left & 0xF) + getFlag(Flag::C)) > 0xF;
+    AF.left += DE.left + getFlag(Flag::C);
+    setFlags((AF.left == 0), 0, half, carry);
+    LOG("ADC A, D")
+}
+void CPULR35902::OP_8B() {
+    T += 4;
+    const bool carry = (AF.left + DE.right + getFlag(Flag::C)) > 0xFF;
+    const bool half = ((AF.left & 0xF) + (DE.right & 0xF) + getFlag(Flag::C)) > 0xF;
+    AF.left += DE.right + getFlag(Flag::C);
+    setFlags((AF.left == 0), 0, half, carry);
+    LOG("ADC A, E")
+}
+void CPULR35902::OP_8C() {
+    T += 4;
+    const bool carry = (AF.left + HL.left + getFlag(Flag::C)) > 0xFF;
+    const bool half = ((AF.left & 0xF) + (HL.left & 0xF) + getFlag(Flag::C)) > 0xF;
+    AF.left += HL.left + getFlag(Flag::C);
+    setFlags((AF.left == 0), 0, half, carry);
+    LOG("ADC A, H")
+}
+void CPULR35902::OP_8D() {
+    T += 4;
+    const bool carry = (AF.left + HL.right + getFlag(Flag::C)) > 0xFF;
+    const bool half = ((AF.left & 0xF) + (HL.right & 0xF) + getFlag(Flag::C)) > 0xF;
+    AF.left += HL.right + getFlag(Flag::C);
+    setFlags((AF.left == 0), 0, half, carry);
+    LOG("ADC A, L")
+}
+void CPULR35902::OP_8E() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    const bool carry = (AF.left + value + getFlag(Flag::C)) > 0xFF;
+    const bool half = ((AF.left & 0xF) + (value & 0xF) + getFlag(Flag::C)) > 0xF;
+    AF.left += value + getFlag(Flag::C);
+    setFlags((AF.left == 0), 0, half, carry);
+    LOG("ADC A, (HL)")
+}
+void CPULR35902::OP_8F() {
+    T += 4;
+    const bool carry = (AF.left + AF.left + getFlag(Flag::C)) > 0xFF;
+    const bool half = ((AF.left & 0xF) + (AF.left & 0xF) + getFlag(Flag::C)) > 0xF;
+    AF.left += AF.left + getFlag(Flag::C);
+    setFlags((AF.left == 0), 0, half, carry);
+    LOG("ADC A, A")
+}
+void CPULR35902::OP_90() {
+    T += 4;
+    const bool carry = AF.left < BC.left;
+    const bool half = (AF.left & 0xF) < (BC.left & 0xF);
+    AF.left -= BC.left;
+    setFlags((AF.left == 0), 1, half, carry);
+    LOG("SUB A, B")
+}
+void CPULR35902::OP_91() {
+    T += 4;
+    const bool carry = AF.left < BC.right;
+    const bool half = (AF.left & 0xF) < (BC.right & 0xF);
+    AF.left -= BC.right;
+    setFlags((AF.left == 0), 1, half, carry);
+    LOG("SUB A, C")
+}
+void CPULR35902::OP_92() {
+    T += 4;
+    const bool carry = AF.left < DE.left;
+    const bool half = (AF.left & 0xF) < (DE.left & 0xF);
+    AF.left -= DE.left;
+    setFlags((AF.left == 0), 1, half, carry);
+    LOG("SUB A, D")
+}
+void CPULR35902::OP_93() {
+    T += 4;
+    const bool carry = AF.left < DE.right;
+    const bool half = (AF.left & 0xF) < (DE.right & 0xF);
+    AF.left -= DE.right;
+    setFlags((AF.left == 0), 1, half, carry);
+    LOG("SUB A, E")
+}
+void CPULR35902::OP_94() {
+    T += 4;
+    const bool carry = AF.left < HL.left;
+    const bool half = (AF.left & 0xF) < (HL.left & 0xF);
+    AF.left -= HL.left;
+    setFlags((AF.left == 0), 1, half, carry);
+    LOG("SUB A, H")
+}
+void CPULR35902::OP_95() {
+    T += 4;
+    const bool carry = AF.left < HL.right;
+    const bool half = (AF.left & 0xF) < (HL.right & 0xF);
+    AF.left -= HL.right;
+    setFlags((AF.left == 0), 1, half, carry);
+    LOG("SUB A, L")
+}
+void CPULR35902::OP_96() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    const bool carry = AF.left < value;
+    const bool half = (AF.left & 0xF) < (value & 0xF);
+    AF.left -= value;
+    setFlags((AF.left == 0), 1, half, carry);
+    LOG("SUB A, (HL)")
+}
+void CPULR35902::OP_97() {
+    T += 4;
+    AF.left = 0;
+    setFlags(1, 1, 0, 0);
+    LOG("SUB A, A")
+}
+void CPULR35902::OP_98() {
+    T += 4;
+    const bool carry = AF.left < (BC.left + getFlag(Flag::C));
+    const bool half = (AF.left & 0xF) < ((BC.left & 0xF) + getFlag(Flag::C));
+    AF.left -= (BC.left + getFlag(Flag::C));
+    setFlags((AF.left == 0), 1, half, carry);
+    LOG("SBC A, B")
+}
+void CPULR35902::OP_99() {
+    T += 4;
+    const bool carry = AF.left < (BC.right + getFlag(Flag::C));
+    const bool half = (AF.left & 0xF) < ((BC.right & 0xF) + getFlag(Flag::C));
+    AF.left -= (BC.right + getFlag(Flag::C));
+    setFlags((AF.left == 0), 1, half, carry);
+    LOG("SBC A, C")
+}
+void CPULR35902::OP_9A() {
+    T += 4;
+    const bool carry = AF.left < (DE.left + getFlag(Flag::C));
+    const bool half = (AF.left & 0xF) < ((DE.left & 0xF) + getFlag(Flag::C));
+    AF.left -= (DE.left + getFlag(Flag::C));
+    setFlags((AF.left == 0), 1, half, carry);
+    LOG("SBC A, D")
+}
+void CPULR35902::OP_9B() {
+    T += 4;
+    const bool carry = AF.left < (DE.right + getFlag(Flag::C));
+    const bool half = (AF.left & 0xF) < ((DE.right & 0xF) + getFlag(Flag::C));
+    AF.left -= (DE.right + getFlag(Flag::C));
+    setFlags((AF.left == 0), 1, half, carry);
+    LOG("SBC A, E")
+}
+void CPULR35902::OP_9C() {
+    T += 4;
+    const bool carry = AF.left < (HL.left + getFlag(Flag::C));
+    const bool half = (AF.left & 0xF) < ((HL.left & 0xF) + getFlag(Flag::C));
+    AF.left -= (HL.left + getFlag(Flag::C));
+    setFlags((AF.left == 0), 1, half, carry);
+    LOG("SBC A, H")
+}
+void CPULR35902::OP_9D() {
+    T += 4;
+    const bool carry = AF.left < (HL.right + getFlag(Flag::C));
+    const bool half = (AF.left & 0xF) < ((HL.right & 0xF) + getFlag(Flag::C));
+    AF.left -= (HL.right + getFlag(Flag::C));
+    setFlags((AF.left == 0), 1, half, carry);
+    LOG("SBC A, L")
+}
+void CPULR35902::OP_9E() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    const bool carry = AF.left < (value + getFlag(Flag::C));
+    const bool half = (AF.left & 0xF) < ((value & 0xF) + getFlag(Flag::C));
+    AF.left -= (value + getFlag(Flag::C));
+    setFlags((AF.left == 0), 1, half, carry);
+    LOG("SBC A, (HL)")
+}
+void CPULR35902::OP_9F() {
+    T += 4;
+    const bool half = getFlag(Flag::C);
+    AF.left = -getFlag(Flag::C);
+    setFlags((AF.left == 0), 1, half, -1);
+    LOG("SBC A, A")
+}
 void CPULR35902::OP_A0() {
     T += 4;
     AF.left &= BC.left;
@@ -889,14 +1233,61 @@ void CPULR35902::OP_B7() {
     setFlags((AF.left == 0), 0, 0, 0);
     LOG("OR A, A")
 }
-void CPULR35902::OP_B8() {}
-void CPULR35902::OP_B9() {}
-void CPULR35902::OP_BA() {}
-void CPULR35902::OP_BB() {}
-void CPULR35902::OP_BC() {}
-void CPULR35902::OP_BD() {}
-void CPULR35902::OP_BE() {}
-void CPULR35902::OP_BF() {}
+void CPULR35902::OP_B8() {
+    T += 4;
+    const bool carry = AF.left < BC.left;
+    const bool half = (AF.left & 0xF) < (BC.left & 0xF);
+    setFlags((AF.left == BC.left), 1, half, carry);
+    LOG("CP A, B")
+}
+void CPULR35902::OP_B9() {
+    T += 4;
+    const bool carry = AF.left < BC.right;
+    const bool half = (AF.left & 0xF) < (BC.right & 0xF);
+    setFlags((AF.left == BC.right), 1, half, carry);
+    LOG("CP A, C")
+}
+void CPULR35902::OP_BA() {
+    T += 4;
+    const bool carry = AF.left < DE.left;
+    const bool half = (AF.left & 0xF) < (DE.left & 0xF);
+    setFlags((AF.left == DE.left), 1, half, carry);
+    LOG("CP A, D")
+}
+void CPULR35902::OP_BB() {
+    T += 4;
+    const bool carry = AF.left < DE.right;
+    const bool half = (AF.left & 0xF) < (DE.right & 0xF);
+    setFlags((AF.left == DE.right), 1, half, carry);
+    LOG("CP A, E")
+}
+void CPULR35902::OP_BC() {
+    T += 4;
+    const bool carry = AF.left < HL.left;
+    const bool half = (AF.left & 0xF) < (HL.left & 0xF);
+    setFlags((AF.left == HL.left), 1, half, carry);
+    LOG("CP A, H")
+}
+void CPULR35902::OP_BD() {
+    T += 4;
+    const bool carry = AF.left < HL.right;
+    const bool half = (AF.left & 0xF) < (HL.right & 0xF);
+    setFlags((AF.left == HL.right), 1, half, carry);
+    LOG("CP A, L")
+}
+void CPULR35902::OP_BE() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w); 
+    const bool carry = AF.left < value;
+    const bool half = (AF.left & 0xF) < (value & 0xF);
+    setFlags((AF.left == value), 1, half, carry);
+    LOG("CP A, (HL)")
+}
+void CPULR35902::OP_BF() {
+    T += 4;
+    setFlags(1, 1, 0, 0);
+    LOG("CP A, A")
+}
 void CPULR35902::OP_C0() {
     const bool zero = getFlag(Flag::Z);
     if(zero) {
@@ -954,7 +1345,16 @@ void CPULR35902::OP_C5() {
     bus->write<uint16_t>(SP.w, BC.w);
     LOG("PUSH BC")
 }
-void CPULR35902::OP_C6() {}
+void CPULR35902::OP_C6() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    const bool carry = (AF.left + value) > 0xFF;
+    const bool half = ((AF.left & 0xF) + (value & 0xF)) > 0xF;
+    AF.left += value;
+    setFlags((AF.left == 0), 0, half, carry);
+    LOG("ADD A, $" + toHexString(value))
+}
 void CPULR35902::OP_C7() {
     T += 16;
     SP.w--;
@@ -1021,7 +1421,16 @@ void CPULR35902::OP_CD() {
     PC.w = addr;
     LOG("CALL, $" + toHexString(addr))
 }
-void CPULR35902::OP_CE() {}
+void CPULR35902::OP_CE() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    const bool carry = (AF.left + value + getFlag(Flag::C)) > 0xFF;
+    const bool half = ((AF.left & 0xF) + (value & 0xF) + getFlag(Flag::C)) > 0xF;
+    AF.left += value + getFlag(Flag::C);
+    setFlags((AF.left == 0), 0, half, carry);
+    LOG("ADC A, $" + toHexString(value))
+}
 void CPULR35902::OP_CF() {
     T += 16;
     SP.w--;
@@ -1077,7 +1486,6 @@ void CPULR35902::OP_D4() {
         PC.w = addr;
     }
     LOG("CALL NC, $" + toHexString(addr))
-
 }
 void CPULR35902::OP_D5() {
     T += 16;
@@ -1085,7 +1493,16 @@ void CPULR35902::OP_D5() {
     bus->write<uint16_t>(SP.w, DE.w);
     LOG("PUSH DE")
 }
-void CPULR35902::OP_D6() {}
+void CPULR35902::OP_D6() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    const bool carry = AF.left < value; 
+    const bool half = (AF.left & 0xF) < (value & 0xF);
+    AF.left -= value; 
+    setFlags((AF.left == 0), 1, half, carry);
+    LOG("SUB A, $" + toHexString(value))
+}
 void CPULR35902::OP_D7() {
     T += 16;
     SP.w--;
@@ -1146,7 +1563,16 @@ void CPULR35902::OP_DC() {
 void CPULR35902::OP_DD() {
     throw std::runtime_error("Illegal instruction!");
 }
-void CPULR35902::OP_DE() {}
+void CPULR35902::OP_DE() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    const bool carry = AF.left < (value + getFlag(Flag::C));
+    const bool half = (AF.left & 0xF) < ((value & 0xF) + getFlag(Flag::C));
+    AF.left -= (value + getFlag(Flag::C));
+    setFlags((AF.left == 0), 1, half, carry);
+    LOG("SBC A, $" + toHexString(value))
+}
 void CPULR35902::OP_DF() {
     T += 16;
     SP.w--;
@@ -1183,7 +1609,14 @@ void CPULR35902::OP_E5() {
     bus->write<uint16_t>(SP.w, HL.w);
     LOG("PUSH HL")
 }
-void CPULR35902::OP_E6() {}
+void CPULR35902::OP_E6() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    AF.left &= value;
+    setFlags((AF.left == 0), 0, 1, 0);
+    LOG("AND A, $" + toHexString(value))
+}
 void CPULR35902::OP_E7() {
     T += 16;
     SP.w--;
@@ -1191,7 +1624,16 @@ void CPULR35902::OP_E7() {
     PC.w = 0x20;
     LOG("RST $20")
 }
-void CPULR35902::OP_E8() {}
+void CPULR35902::OP_E8() {
+    T+=16;
+    const auto value = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    const bool carry = (SP.right + value) > 0xFF;   
+    const bool half = ((SP.w & 0xF) + (value & 0xF)) > 0xF;
+    SP.w += value;
+    setFlags(0, 0, half, carry);
+    LOG("ADD SP, $" + toHexString(value))
+}
 void CPULR35902::OP_E9() {
     T += 4;
     PC.w = HL.w;
@@ -1213,7 +1655,13 @@ void CPULR35902::OP_EC() {
 void CPULR35902::OP_ED() {
     throw std::runtime_error("Illegal instruction!");
 }
-void CPULR35902::OP_EE() {}
+void CPULR35902::OP_EE() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    AF.left ^= value;
+    setFlags((AF.left == 0), 0, 0, 0);
+    LOG("XOR A, $" + toHexString(value))
+}
 void CPULR35902::OP_EF() {
     T += 16;
     SP.w--;
@@ -1252,7 +1700,14 @@ void CPULR35902::OP_F5() {
     bus->write<uint16_t>(SP.w, AF.w);
     LOG("PUSH AF")
 }
-void CPULR35902::OP_F6() {}
+void CPULR35902::OP_F6() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    AF.left |= value;
+    setFlags((AF.left == 0), 0, 0, 0);
+    LOG("OR A, $" + toHexString(value))
+}
 void CPULR35902::OP_F7() {
     T += 16;
     SP.w--;
@@ -1260,7 +1715,16 @@ void CPULR35902::OP_F7() {
     PC.w = 0x30;
     LOG("RST $30")
 }
-void CPULR35902::OP_F8() {}
+void CPULR35902::OP_F8() {
+    T+=12;
+    const auto value = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    const bool carry = (SP.right + value) > 0xFF;
+    const bool half = ((SP.w & 0xF) + (value & 0xF)) > 0xF;
+    HL.w = SP.w + value;
+    setFlags(0, 0, half, carry);
+    LOG("LD HL, SP + $" + toHexString(value))
+}
 void CPULR35902::OP_F9() {
     T += 8;
     SP.w = HL.w;
@@ -1283,7 +1747,15 @@ void CPULR35902::OP_FC() {
 void CPULR35902::OP_FD() {
     throw std::runtime_error("Illegal instruction!");
 }
-void CPULR35902::OP_FE() {}
+void CPULR35902::OP_FE() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    const bool carry = AF.left < value;
+    const bool half = (AF.left & 0xF) < (value & 0xF);
+    setFlags((AF.left == value), 1, half, carry);
+    LOG("CP A, $" + toHexString(value))
+}
 void CPULR35902::OP_FF() {
     T += 16;
     SP.w--;
