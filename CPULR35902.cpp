@@ -897,70 +897,400 @@ void CPULR35902::OP_BC() {}
 void CPULR35902::OP_BD() {}
 void CPULR35902::OP_BE() {}
 void CPULR35902::OP_BF() {}
-void CPULR35902::OP_C0() {}
-void CPULR35902::OP_C1() {}
-void CPULR35902::OP_C2() {}
-void CPULR35902::OP_C3() {}
-void CPULR35902::OP_C4() {}
-void CPULR35902::OP_C5() {}
+void CPULR35902::OP_C0() {
+    const bool zero = getFlag(Flag::Z);
+    if(zero) {
+        T += 8;
+    }
+    else {
+        T += 20;
+        PC.w = bus->read<uint16_t>(SP.w);
+        SP.w++;
+    }
+    LOG("RET NZ")
+}
+void CPULR35902::OP_C1() {
+    T += 12;
+    SP.w--;
+    BC.w = bus->read<uint16_t>(SP.w);
+    LOG("POP BC")
+}
+void CPULR35902::OP_C2() {
+    const auto addr = bus->read<uint16_t>(PC.w);
+    PC.w += 2;
+    const bool zero = getFlag(Flag::Z);
+    if(zero) {
+        T += 12;
+    }
+    else {
+        T += 16;
+        PC.w = addr;
+    }
+    LOG("JP NZ, $" + toHexString(addr))
+}
+void CPULR35902::OP_C3() {  
+    T += 16;
+    PC.w = bus->read<uint16_t>(PC.w);
+    LOG("JP, $" + toHexString(PC.w))
+}
+void CPULR35902::OP_C4() {
+    const auto addr = bus->read<uint16_t>(PC.w);
+    PC.w += 2;
+    const bool zero = getFlag(Flag::Z);
+    if(zero) {
+        T += 12;
+    }
+    else {
+        T += 24;
+        SP.w--;
+        bus->write<uint16_t>(SP.w, PC.w);
+        PC.w = addr;
+    }
+    LOG("CALL NZ, $" + toHexString(addr))
+}
+void CPULR35902::OP_C5() {
+    T += 16;
+    SP.w--;
+    bus->write<uint16_t>(SP.w, BC.w);
+    LOG("PUSH BC")
+}
 void CPULR35902::OP_C6() {}
-void CPULR35902::OP_C7() {}
-void CPULR35902::OP_C8() {}
-void CPULR35902::OP_C9() {}
-void CPULR35902::OP_CA() {}
-void CPULR35902::OP_CB() {}
-void CPULR35902::OP_CC() {}
-void CPULR35902::OP_CD() {}
+void CPULR35902::OP_C7() {
+    T += 16;
+    SP.w--;
+    bus->write<uint16_t>(SP.w, PC.w);
+    PC.w = 0x00;
+    LOG("RST $00")
+}
+void CPULR35902::OP_C8() {
+    const bool zero = getFlag(Flag::Z);
+    if(zero) {
+        T += 20;
+        PC.w = bus->read<uint16_t>(SP.w);
+        SP.w++;
+    }
+    else {
+        T += 8;
+    }
+    LOG("RET Z")
+}
+void CPULR35902::OP_C9() {
+    T += 16;
+    PC.w = bus->read<uint16_t>(SP.w);
+    SP.w++;
+    LOG("RET")
+}
+void CPULR35902::OP_CA() {
+    const auto addr = bus->read<uint16_t>(PC.w);
+    PC.w += 2;
+    const bool zero = getFlag(Flag::Z);
+    if(zero) {
+        T += 16;
+        PC.w = addr;
+    }
+    else {
+        T += 12;
+    }
+    LOG("JP Z, $" + toHexString(addr))
+}
+void CPULR35902::OP_CB() {
+    T += 4;
+    LOG("PREFIX")
+}
+void CPULR35902::OP_CC() {
+    const auto addr = bus->read<uint16_t>(PC.w);
+    PC.w += 2;
+    const bool zero = getFlag(Flag::Z);
+    if(zero) {
+        T += 24;
+        SP.w--;
+        bus->write<uint16_t>(SP.w, PC.w);
+        PC.w = addr;
+    }
+    else {
+        T += 12;    
+    }
+    LOG("CALL Z, $" + toHexString(addr))
+}
+void CPULR35902::OP_CD() {
+    T += 24;
+    const auto addr = bus->read<uint16_t>(PC.w);
+    PC.w += 2;
+    SP.w--;
+    bus->write<uint16_t>(SP.w, PC.w);
+    PC.w = addr;
+    LOG("CALL, $" + toHexString(addr))
+}
 void CPULR35902::OP_CE() {}
-void CPULR35902::OP_CF() {}
-void CPULR35902::OP_D0() {}
-void CPULR35902::OP_D1() {}
-void CPULR35902::OP_D2() {}
-void CPULR35902::OP_D3() {}
-void CPULR35902::OP_D4() {}
-void CPULR35902::OP_D5() {}
+void CPULR35902::OP_CF() {
+    T += 16;
+    SP.w--;
+    bus->write<uint16_t>(SP.w, PC.w);
+    PC.w = 0x08;
+    LOG("RST $08")
+}
+void CPULR35902::OP_D0() {
+    const bool carry = getFlag(Flag::C);
+    if(carry) {
+        T += 8;
+    }
+    else {
+        T += 20;
+        PC.w = bus->read<uint16_t>(SP.w);
+        SP.w++;
+    }
+    LOG("RET NC")
+}
+void CPULR35902::OP_D1() {
+    T += 12;
+    SP.w--;
+    DE.w = bus->read<uint16_t>(SP.w);
+    LOG("POP DE")
+}
+void CPULR35902::OP_D2() {
+    const auto addr = bus->read<uint16_t>(PC.w);
+    PC.w += 2;
+    const bool carry = getFlag(Flag::C);
+    if(carry) {
+        T += 12;
+    }
+    else {
+        T += 16;
+        PC.w = addr;
+    }
+    LOG("RET NZ, $" + toHexString(addr))
+}
+void CPULR35902::OP_D3() {
+    throw std::runtime_error("Illegal instruction!");
+}
+void CPULR35902::OP_D4() {
+    const auto addr = bus->read<uint16_t>(PC.w);
+    PC.w += 2;
+    const bool carry = getFlag(Flag::C);
+    if(carry) {
+        T += 12;
+    }
+    else {
+        T += 24;
+        SP.w--;
+        bus->write<uint16_t>(SP.w, PC.w);
+        PC.w = addr;
+    }
+    LOG("CALL NC, $" + toHexString(addr))
+
+}
+void CPULR35902::OP_D5() {
+    T += 16;
+    SP.w--;
+    bus->write<uint16_t>(SP.w, DE.w);
+    LOG("PUSH DE")
+}
 void CPULR35902::OP_D6() {}
-void CPULR35902::OP_D7() {}
-void CPULR35902::OP_D8() {}
-void CPULR35902::OP_D9() {}
-void CPULR35902::OP_DA() {}
-void CPULR35902::OP_DB() {}
-void CPULR35902::OP_DC() {}
-void CPULR35902::OP_DD() {}
+void CPULR35902::OP_D7() {
+    T += 16;
+    SP.w--;
+    bus->write<uint16_t>(SP.w, PC.w);
+    PC.w = 0x10;
+    LOG("RST $10")
+}
+void CPULR35902::OP_D8() {
+    const bool carry = getFlag(Flag::C);
+    if(carry) {
+        T += 20;
+        PC.w = bus->read<uint16_t>(SP.w);
+        SP.w++;
+    }
+    else {
+        T += 8;
+    }
+    LOG("RET C")
+}
+void CPULR35902::OP_D9() {
+    T += 16;
+    PC.w = bus->read<uint16_t>(SP.w);
+    SP.w++;
+    interrupts = true;
+    LOG("RETI") 
+}
+void CPULR35902::OP_DA() {
+    const auto addr = bus->read<uint16_t>(PC.w);
+    PC.w += 2;
+    const bool carry = getFlag(Flag::C);
+    if(carry) {
+        T += 16;
+        PC.w = addr;
+    }
+    else {
+        T += 12;
+    }
+    LOG("JP C, $" + toHexString(addr))
+}
+void CPULR35902::OP_DB() {
+    throw std::runtime_error("Illegal instruction!");    
+}
+void CPULR35902::OP_DC() {
+    const auto addr = bus->read<uint16_t>(PC.w);
+    PC.w += 2;
+    const bool carry = getFlag(Flag::C);
+    if(carry) {
+        T += 24;
+        SP.w--;
+        bus->write<uint16_t>(SP.w, PC.w);
+        PC.w = addr;
+    }
+    else {
+        T += 12;
+    }
+    LOG("CALL C, $" + toHexString(addr))
+}
+void CPULR35902::OP_DD() {
+    throw std::runtime_error("Illegal instruction!");
+}
 void CPULR35902::OP_DE() {}
-void CPULR35902::OP_DF() {}
-void CPULR35902::OP_E0() {}
-void CPULR35902::OP_E1() {}
-void CPULR35902::OP_E2() {}
-void CPULR35902::OP_E3() {}
-void CPULR35902::OP_E4() {}
-void CPULR35902::OP_E5() {}
+void CPULR35902::OP_DF() {
+    T += 16;
+    SP.w--;
+    bus->write<uint16_t>(SP.w, PC.w);
+    PC.w = 0x18;
+    LOG("RST $18")
+}
+void CPULR35902::OP_E0() { 
+    const auto value = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    bus->write<uint8_t>(0xFF00 + value, AF.left);
+    LOG("LDH ($" + toHexString(value) + "), A")  
+}
+void CPULR35902::OP_E1() {
+    T += 12;
+    SP.w--;
+    HL.w = bus->read<uint16_t>(SP.w);
+    LOG("POP HL")
+}
+void CPULR35902::OP_E2() {
+    T += 8;
+    bus->write<uint8_t>(BC.right, AF.left);
+    LOG("LD (C), A")
+}
+void CPULR35902::OP_E3() {
+    throw std::runtime_error("Illegal instruction!");
+}
+void CPULR35902::OP_E4() {
+    throw std::runtime_error("Illegal instruction!");
+}
+void CPULR35902::OP_E5() {
+    T += 16;
+    SP.w--;
+    bus->write<uint16_t>(SP.w, HL.w);
+    LOG("PUSH HL")
+}
 void CPULR35902::OP_E6() {}
-void CPULR35902::OP_E7() {}
+void CPULR35902::OP_E7() {
+    T += 16;
+    SP.w--;
+    bus->write<uint16_t>(SP.w, PC.w);
+    PC.w = 0x20;
+    LOG("RST $20")
+}
 void CPULR35902::OP_E8() {}
-void CPULR35902::OP_E9() {}
-void CPULR35902::OP_EA() {}
-void CPULR35902::OP_EB() {}
-void CPULR35902::OP_EC() {}
-void CPULR35902::OP_ED() {}
+void CPULR35902::OP_E9() {
+    T += 4;
+    PC.w = HL.w;
+    LOG("JP HL")
+}
+void CPULR35902::OP_EA() {
+    T += 16;
+    const auto addr = bus->read<uint16_t>(PC.w);
+    PC.w += 2;
+    bus->write<uint8_t>(addr, AF.left);
+    LOG("LD ($" + toHexString(addr) + "), A")
+}
+void CPULR35902::OP_EB() {
+    throw std::runtime_error("Illegal instruction!");
+}
+void CPULR35902::OP_EC() {
+    throw std::runtime_error("Illegal instruction!");
+}
+void CPULR35902::OP_ED() {
+    throw std::runtime_error("Illegal instruction!");
+}
 void CPULR35902::OP_EE() {}
-void CPULR35902::OP_EF() {}
-void CPULR35902::OP_F0() {}
-void CPULR35902::OP_F1() {}
-void CPULR35902::OP_F2() {}
-void CPULR35902::OP_F3() {}
-void CPULR35902::OP_F4() {}
-void CPULR35902::OP_F5() {}
+void CPULR35902::OP_EF() {
+    T += 16;
+    SP.w--;
+    bus->write<uint16_t>(SP.w, PC.w);
+    PC.w = 0x28;
+    LOG("RST $28")
+}
+void CPULR35902::OP_F0() {
+    T += 12;
+    const auto value = bus->read<uint8_t>(PC.w);
+    PC.w++;
+    AF.left = bus->read<uint8_t>(0xFF00 + value);
+    LOG("LDH A, ($" + toHexString(value) + ")")
+}
+void CPULR35902::OP_F1() {
+    T += 12;
+    SP.w--;
+    AF.w = bus->read<uint16_t>(SP.w);
+    LOG("POP AF")
+}
+void CPULR35902::OP_F2() {
+    T += 8;
+    AF.left = bus->read<uint8_t>(BC.right);
+    LOG("LD A, (C)")
+}
+void CPULR35902::OP_F3() {
+    interrupts = false;
+    LOG("DI")
+}
+void CPULR35902::OP_F4() {
+    throw std::runtime_error("Illegal instruction!");
+}
+void CPULR35902::OP_F5() {
+    T += 16;
+    SP.w--;
+    bus->write<uint16_t>(SP.w, AF.w);
+    LOG("PUSH AF")
+}
 void CPULR35902::OP_F6() {}
-void CPULR35902::OP_F7() {}
+void CPULR35902::OP_F7() {
+    T += 16;
+    SP.w--;
+    bus->write<uint16_t>(SP.w, PC.w);
+    PC.w = 0x30;
+    LOG("RST $30")
+}
 void CPULR35902::OP_F8() {}
-void CPULR35902::OP_F9() {}
-void CPULR35902::OP_FA() {}
-void CPULR35902::OP_FB() {}
-void CPULR35902::OP_FC() {}
-void CPULR35902::OP_FD() {}
+void CPULR35902::OP_F9() {
+    T += 8;
+    SP.w = HL.w;
+    LOG("LD SP, HL")
+}
+void CPULR35902::OP_FA() {
+    T += 16;
+    const auto addr = bus->read<uint16_t>(PC.w);
+    PC.w += 2;
+    AF.left = bus->read<uint8_t>(addr);
+    LOG("LD A, ($" + toHexString(addr) + ")")
+}
+void CPULR35902::OP_FB() {
+    interrupts = true;
+    LOG("EI")
+}
+void CPULR35902::OP_FC() {
+    throw std::runtime_error("Illegal instruction!");
+}
+void CPULR35902::OP_FD() {
+    throw std::runtime_error("Illegal instruction!");
+}
 void CPULR35902::OP_FE() {}
-void CPULR35902::OP_FF() {}
+void CPULR35902::OP_FF() {
+    T += 16;
+    SP.w--;
+    bus->write<uint16_t>(SP.w, PC.w);
+    PC.w = 0x00;
+    LOG("RST $38")
+}
 
 void CPULR35902::PR_00() {}
 void CPULR35902::PR_01() {}

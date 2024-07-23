@@ -45,7 +45,7 @@ private:
     unsigned long long T = 0;
     bool halt = false;
     bool stop = false; 
-    
+    bool interrupts = false; 
     Bus* bus;
 
     std::array<std::function<void()>, 256> opcodeHandler;
