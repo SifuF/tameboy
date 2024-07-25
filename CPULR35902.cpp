@@ -345,7 +345,16 @@ void CPULR35902::OP_26() {
     PC.w++;
     LOG("LD H, " + toHexString(HL.left))
 }
-void CPULR35902::OP_27() {}
+void CPULR35902::OP_27() {
+    T += 4;
+    const uint8_t quo = AF.left / 100;
+    const uint8_t rem = AF.left % 100;
+    const uint8_t lsd = rem % 10;
+    const uint8_t msb = rem / 10;
+    AF.left = (msb << 4) | lsb;
+    setFlags((AF.left == 0), -1, 0, (quo > 0));
+    LOG("DAA")
+}
 void CPULR35902::OP_28() {
     const auto relative = bus->read<uint8_t>(PC.w);
     PC.w++;
