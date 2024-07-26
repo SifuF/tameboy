@@ -350,8 +350,8 @@ void CPULR35902::OP_27() {
     const uint8_t quo = AF.left / 100;
     const uint8_t rem = AF.left % 100;
     const uint8_t lsd = rem % 10;
-    const uint8_t msb = rem / 10;
-    AF.left = (msb << 4) | lsb;
+    const uint8_t msd = rem / 10;
+    AF.left = (msd << 4) | lsd;
     setFlags((AF.left == 0), -1, 0, (quo > 0));
     LOG("DAA")
 }
@@ -1906,134 +1906,664 @@ void CPULR35902::PR_7C() { // BIT 7, H
 void CPULR35902::PR_7D() {}
 void CPULR35902::PR_7E() {}
 void CPULR35902::PR_7F() {}
-void CPULR35902::PR_80() {}
-void CPULR35902::PR_81() {}
-void CPULR35902::PR_82() {}
-void CPULR35902::PR_83() {}
-void CPULR35902::PR_84() {}
-void CPULR35902::PR_85() {}
-void CPULR35902::PR_86() {}
-void CPULR35902::PR_87() {}
-void CPULR35902::PR_88() {}
-void CPULR35902::PR_89() {}
-void CPULR35902::PR_8A() {}
-void CPULR35902::PR_8B() {}
-void CPULR35902::PR_8C() {}
-void CPULR35902::PR_8D() {}
-void CPULR35902::PR_8E() {}
-void CPULR35902::PR_8F() {}
-void CPULR35902::PR_90() {}
-void CPULR35902::PR_91() {}
-void CPULR35902::PR_92() {}
-void CPULR35902::PR_93() {}
-void CPULR35902::PR_94() {}
-void CPULR35902::PR_95() {}
-void CPULR35902::PR_96() {}
-void CPULR35902::PR_97() {}
-void CPULR35902::PR_98() {}
-void CPULR35902::PR_99() {}
-void CPULR35902::PR_9A() {}
-void CPULR35902::PR_9B() {}
-void CPULR35902::PR_9C() {}
-void CPULR35902::PR_9D() {}
-void CPULR35902::PR_9E() {}
-void CPULR35902::PR_9F() {}
-void CPULR35902::PR_A0() {}
-void CPULR35902::PR_A1() {}
-void CPULR35902::PR_A2() {}
-void CPULR35902::PR_A3() {}
-void CPULR35902::PR_A4() {}
-void CPULR35902::PR_A5() {}
-void CPULR35902::PR_A6() {}
-void CPULR35902::PR_A7() {}
-void CPULR35902::PR_A8() {}
-void CPULR35902::PR_A9() {}
-void CPULR35902::PR_AA() {}
-void CPULR35902::PR_AB() {}
-void CPULR35902::PR_AC() {}
-void CPULR35902::PR_AD() {}
-void CPULR35902::PR_AE() {}
-void CPULR35902::PR_AF() {}
-void CPULR35902::PR_B0() {}
-void CPULR35902::PR_B1() {}
-void CPULR35902::PR_B2() {}
-void CPULR35902::PR_B3() {}
-void CPULR35902::PR_B4() {}
-void CPULR35902::PR_B5() {}
-void CPULR35902::PR_B6() {}
-void CPULR35902::PR_B7() {}
-void CPULR35902::PR_B8() {}
-void CPULR35902::PR_B9() {}
-void CPULR35902::PR_BA() {}
-void CPULR35902::PR_BB() {}
-void CPULR35902::PR_BC() {}
-void CPULR35902::PR_BD() {}
-void CPULR35902::PR_BE() {}
-void CPULR35902::PR_BF() {}
-void CPULR35902::PR_C0() {}
-void CPULR35902::PR_C1() {}
-void CPULR35902::PR_C2() {}
-void CPULR35902::PR_C3() {}
-void CPULR35902::PR_C4() {}
-void CPULR35902::PR_C5() {}
-void CPULR35902::PR_C6() {}
-void CPULR35902::PR_C7() {}
-void CPULR35902::PR_C8() {}
-void CPULR35902::PR_C9() {}
-void CPULR35902::PR_CA() {}
-void CPULR35902::PR_CB() {}
-void CPULR35902::PR_CC() {}
-void CPULR35902::PR_CD() {}
-void CPULR35902::PR_CE() {}
-void CPULR35902::PR_CF() {}
-void CPULR35902::PR_D0() {}
-void CPULR35902::PR_D1() {}
-void CPULR35902::PR_D2() {}
-void CPULR35902::PR_D3() {}
-void CPULR35902::PR_D4() {}
-void CPULR35902::PR_D5() {}
-void CPULR35902::PR_D6() {}
-void CPULR35902::PR_D7() {}
-void CPULR35902::PR_D8() {}
-void CPULR35902::PR_D9() {}
-void CPULR35902::PR_DA() {}
-void CPULR35902::PR_DB() {}
-void CPULR35902::PR_DC() {}
-void CPULR35902::PR_DD() {}
-void CPULR35902::PR_DE() {}
-void CPULR35902::PR_DF() {}
-void CPULR35902::PR_E0() {}
-void CPULR35902::PR_E1() {}
-void CPULR35902::PR_E2() {}
-void CPULR35902::PR_E3() {}
-void CPULR35902::PR_E4() {}
-void CPULR35902::PR_E5() {}
-void CPULR35902::PR_E6() {}
-void CPULR35902::PR_E7() {}
-void CPULR35902::PR_E8() {}
-void CPULR35902::PR_E9() {}
-void CPULR35902::PR_EA() {}
-void CPULR35902::PR_EB() {}
-void CPULR35902::PR_EC() {}
-void CPULR35902::PR_ED() {}
-void CPULR35902::PR_EE() {}
-void CPULR35902::PR_EF() {}
-void CPULR35902::PR_F0() {}
-void CPULR35902::PR_F1() {}
-void CPULR35902::PR_F2() {}
-void CPULR35902::PR_F3() {}
-void CPULR35902::PR_F4() {}
-void CPULR35902::PR_F5() {}
-void CPULR35902::PR_F6() {}
-void CPULR35902::PR_F7() {}
-void CPULR35902::PR_F8() {}
-void CPULR35902::PR_F9() {}
-void CPULR35902::PR_FA() {}
-void CPULR35902::PR_FB() {}
-void CPULR35902::PR_FC() {}
-void CPULR35902::PR_FD() {}
-void CPULR35902::PR_FE() {}
-void CPULR35902::PR_FF() {}
+
+
+void CPULR35902::PR_80() {
+    T += 8;
+    BC.left &= 0b11111110;
+    LOG("RES 0, B")
+}
+void CPULR35902::PR_81() {
+    T += 8;
+    BC.right &= 0b11111110;
+    LOG("RES 0, C")
+}
+void CPULR35902::PR_82() {
+    T += 8;
+    DE.left &= 0b11111110;
+    LOG("RES 0, D")
+}
+void CPULR35902::PR_83() {
+    T += 8;
+    DE.right &= 0b11111110;
+    LOG("RES 0, E")
+}
+void CPULR35902::PR_84() {
+    T += 8;
+    HL.left &= 0b11111110;
+    LOG("RES 0, H")
+}
+void CPULR35902::PR_85() {
+    T += 8;
+    HL.right &= 0b11111110;
+    LOG("RES 0, L")
+}
+void CPULR35902::PR_86() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    bus->write<uint8_t>(HL.w, value & 0b11111110);
+    LOG("RES 0, HL")
+}
+void CPULR35902::PR_87() {
+    T += 8;
+    AF.left &= 0b11111110;
+    LOG("RES 0, A")
+}
+void CPULR35902::PR_88() {
+    T += 8;
+    BC.left &= 0b11111101;
+    LOG("RES 1, B")
+}
+void CPULR35902::PR_89() {
+    T += 8;
+    BC.right &= 0b11111101;
+    LOG("RES 1, C")
+}
+void CPULR35902::PR_8A() {
+    T += 8;
+    DE.left &= 0b11111101;
+    LOG("RES 1, D")
+}
+void CPULR35902::PR_8B() {
+    T += 8;
+    DE.right &= 0b11111101;
+    LOG("RES 1, E")
+}
+void CPULR35902::PR_8C() {
+    T += 8;
+    HL.left &= 0b11111101;
+    LOG("RES 1, H")
+}
+void CPULR35902::PR_8D() {
+    T += 8;
+    HL.right &= 0b11111101;
+    LOG("RES 1, L")
+}
+void CPULR35902::PR_8E() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    bus->write<uint8_t>(HL.w, value & 0b11111101);
+    LOG("RES 1, HL")
+}
+void CPULR35902::PR_8F() {
+    T += 8;
+    AF.left &= 0b11111101;
+    LOG("RES 1, A")
+}
+void CPULR35902::PR_90() {
+    T += 8;
+    BC.left &= 0b11111011;
+    LOG("RES 2, B")
+}
+void CPULR35902::PR_91() {
+    T += 8;
+    BC.right &= 0b11111011;
+    LOG("RES 2, C")
+}
+void CPULR35902::PR_92() {
+    T += 8;
+    DE.left &= 0b11111011;
+    LOG("RES 2, D")
+}
+void CPULR35902::PR_93() {
+    T += 8;
+    DE.right &= 0b11111011;
+    LOG("RES 2, E")
+}
+void CPULR35902::PR_94() {
+    T += 8;
+    HL.left &= 0b11111011;
+    LOG("RES 2, H")
+}
+void CPULR35902::PR_95() {
+    T += 8;
+    HL.right &= 0b11111011;
+    LOG("RES 2, L")
+}
+void CPULR35902::PR_96() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    bus->write<uint8_t>(HL.w, value & 0b11111011);
+    LOG("RES 2, HL")
+}
+void CPULR35902::PR_97() {
+    T += 8;
+    AF.left &= 0b11111011;
+    LOG("RES 2, A")
+}
+void CPULR35902::PR_98() {
+    T += 8;
+    BC.left &= 0b11110111;
+    LOG("RES 3, B")
+}
+void CPULR35902::PR_99() {
+    T += 8;
+    BC.right &= 0b11110111;
+    LOG("RES 3, C")
+}
+void CPULR35902::PR_9A() {
+    T += 8;
+    DE.left &= 0b11110111;
+    LOG("RES 3, D")
+}
+void CPULR35902::PR_9B() {
+    T += 8;
+    DE.right &= 0b11110111;
+    LOG("RES 3, E")
+}
+void CPULR35902::PR_9C() {
+    T += 8;
+    HL.left &= 0b11110111;
+    LOG("RES 3, H")
+}
+void CPULR35902::PR_9D() {
+    T += 8;
+    HL.right &= 0b11110111;
+    LOG("RES 3, L")
+}
+void CPULR35902::PR_9E() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    bus->write<uint8_t>(HL.w, value & 0b11110111);
+    LOG("RES 3, HL")
+}
+void CPULR35902::PR_9F() {
+    T += 8;
+    AF.left &= 0b11110111;
+    LOG("RES 3, A")
+}
+void CPULR35902::PR_A0() {
+    T += 8;
+    BC.left &= 0b11101111;
+    LOG("RES 4, B")
+}
+void CPULR35902::PR_A1() {
+    T += 8;
+    BC.right &= 0b11101111;
+    LOG("RES 4, C")
+}
+void CPULR35902::PR_A2() {
+    T += 8;
+    DE.left &= 0b11101111;
+    LOG("RES 4, D")
+}
+void CPULR35902::PR_A3() {
+    T += 8;
+    DE.right &= 0b11101111;
+    LOG("RES 4, E")
+}
+void CPULR35902::PR_A4() {
+    T += 8;
+    HL.left &= 0b11101111;
+    LOG("RES 4, H")
+}
+void CPULR35902::PR_A5() {
+    T += 8;
+    HL.right &= 0b11101111;
+    LOG("RES 4, L")
+}
+void CPULR35902::PR_A6() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    bus->write<uint8_t>(HL.w, value & 0b11101111);
+    LOG("RES 4, HL")
+}
+void CPULR35902::PR_A7() {
+    T += 8;
+    AF.left &= 0b11101111;
+    LOG("RES 4, A")
+}
+void CPULR35902::PR_A8() {
+    T += 8;
+    BC.left &= 0b11011111;
+    LOG("RES 5, B")
+}
+void CPULR35902::PR_A9() {
+    T += 8;
+    BC.right &= 0b11011111;
+    LOG("RES 5, C")
+}
+void CPULR35902::PR_AA() {
+    T += 8;
+    DE.left &= 0b11011111;
+    LOG("RES 5, D")
+}
+void CPULR35902::PR_AB() {
+    T += 8;
+    DE.right &= 0b11011111;
+    LOG("RES 5, E")
+}
+void CPULR35902::PR_AC() {
+    T += 8;
+    HL.left &= 0b11011111;
+    LOG("RES 5, H")
+}
+void CPULR35902::PR_AD() {
+    T += 8;
+    HL.right &= 0b11011111;
+    LOG("RES 5, L")
+}
+void CPULR35902::PR_AE() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    bus->write<uint8_t>(HL.w, value & 0b11011111);
+    LOG("RES 5, HL")
+}
+void CPULR35902::PR_AF() {
+    T += 8;
+    AF.left &= 0b11011111;
+    LOG("RES 5, A")
+}
+void CPULR35902::PR_B0() {
+    T += 8;
+    BC.left &= 0b10111111;
+    LOG("RES 6, B")
+}
+void CPULR35902::PR_B1() {
+    T += 8;
+    BC.right &= 0b10111111;
+    LOG("RES 6, C")
+}
+void CPULR35902::PR_B2() {
+    T += 8;
+    DE.left &= 0b10111111;
+    LOG("RES 6, D")
+}
+void CPULR35902::PR_B3() {
+    T += 8;
+    DE.right &= 0b10111111;
+    LOG("RES 6, E")
+}
+void CPULR35902::PR_B4() {
+    T += 8;
+    HL.left &= 0b10111111;
+    LOG("RES 6, H")
+}
+void CPULR35902::PR_B5() {
+    T += 8;
+    HL.right &= 0b10111111;
+    LOG("RES 6, L")
+}
+void CPULR35902::PR_B6() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    bus->write<uint8_t>(HL.w, value & 0b10111111);
+    LOG("RES 6, HL")
+}
+void CPULR35902::PR_B7() {
+    T += 8;
+    AF.left &= 0b10111111;
+    LOG("RES 6, A")
+}
+void CPULR35902::PR_B8() {
+    T += 8;
+    BC.left &= 0b01111111;
+    LOG("RES 7, B")
+}
+void CPULR35902::PR_B9() {
+    T += 8;
+    BC.right &= 0b01111111;
+    LOG("RES 7, C")
+}
+void CPULR35902::PR_BA() {
+    T += 8;
+    DE.left &= 0b01111111;
+    LOG("RES 7, D")
+}
+void CPULR35902::PR_BB() {
+    T += 8;
+    DE.right &= 0b01111111;
+    LOG("RES 7, E")
+}
+void CPULR35902::PR_BC() {
+    T += 8;
+    HL.left &= 0b01111111;
+    LOG("RES 7, H")
+}
+void CPULR35902::PR_BD() {
+    T += 8;
+    HL.right &= 0b01111111;
+    LOG("RES 7, L")
+}
+void CPULR35902::PR_BE() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    bus->write<uint8_t>(HL.w, value & 0b01111111);
+    LOG("RES 7, HL")
+}
+void CPULR35902::PR_BF() {
+    T += 8;
+    AF.left &= 0b01111111;
+    LOG("RES 7, A")
+}
+void CPULR35902::PR_C0() {
+    T += 8;
+    BC.left |= 0b00000001;
+    LOG("SET 0, B")
+}
+void CPULR35902::PR_C1() {
+    T += 8;
+    BC.right |= 0b00000001;
+    LOG("SET 0, C")
+}
+void CPULR35902::PR_C2() {
+    T += 8;
+    DE.left |= 0b00000001;
+    LOG("SET 0, D")
+}
+void CPULR35902::PR_C3() {
+    T += 8;
+    DE.right |= 0b00000001;
+    LOG("SET 0, E")
+}
+void CPULR35902::PR_C4() {
+    T += 8;
+    HL.left |= 0b00000001;
+    LOG("SET 0, H")
+}
+void CPULR35902::PR_C5() {
+    T += 8;
+    HL.right |= 0b00000001;
+    LOG("SET 0, L")
+}
+void CPULR35902::PR_C6() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    bus->write<uint8_t>(HL.w, value | 0b00000001);
+    LOG("SET 0, HL")
+}
+void CPULR35902::PR_C7() {
+    T += 8;
+    AF.left |= 0b00000001;
+    LOG("SET 0, A")
+}
+void CPULR35902::PR_C8() {
+    T += 8;
+    BC.left |= 0b00000010;
+    LOG("SET 1, B")
+}
+void CPULR35902::PR_C9() {
+    T += 8;
+    BC.right |= 0b00000010;
+    LOG("SET 1, C")
+}
+void CPULR35902::PR_CA() {
+    T += 8;
+    DE.left |= 0b00000010;
+    LOG("SET 1, D")
+}
+void CPULR35902::PR_CB() {
+    T += 8;
+    DE.right |= 0b00000010;
+    LOG("SET 1, E")
+}
+void CPULR35902::PR_CC() {
+    T += 8;
+    HL.left |= 0b00000010;
+    LOG("SET 1, H")
+}
+void CPULR35902::PR_CD() {
+    T += 8;
+    HL.right |= 0b00000010;
+    LOG("SET 1, L")
+}
+void CPULR35902::PR_CE() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    bus->write<uint8_t>(HL.w, value | 0b00000010);
+    LOG("SET 1, HL")
+}
+void CPULR35902::PR_CF() {
+    T += 8;
+    AF.left |= 0b00000010;
+    LOG("SET 1, A")
+}
+void CPULR35902::PR_D0() {
+    T += 8;
+    BC.left |= 0b00000100;
+    LOG("SET 2, B")
+}
+void CPULR35902::PR_D1() {
+    T += 8;
+    BC.right |= 0b00000100;
+    LOG("SET 2, C")
+}
+void CPULR35902::PR_D2() {
+    T += 8;
+    DE.left |= 0b00000100;
+    LOG("SET 2, D")
+}
+void CPULR35902::PR_D3() {
+    T += 8;
+    DE.right |= 0b00000100;
+    LOG("SET 2, E")
+}
+void CPULR35902::PR_D4() {
+    T += 8;
+    HL.left |= 0b00000100;
+    LOG("SET 2, H")
+}
+void CPULR35902::PR_D5() {
+    T += 8;
+    HL.right |= 0b00000100;
+    LOG("SET 2, L")
+}
+void CPULR35902::PR_D6() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    bus->write<uint8_t>(HL.w, value | 0b00000100);
+    LOG("SET 2, HL")
+}
+void CPULR35902::PR_D7() {
+    T += 8;
+    AF.left |= 0b00000100;
+    LOG("SET 2, A")
+}
+void CPULR35902::PR_D8() {
+    T += 8;
+    BC.left |= 0b00001000;
+    LOG("SET 3, B")
+}
+void CPULR35902::PR_D9() {
+    T += 8;
+    BC.right |= 0b00001000;
+    LOG("SET 3, C")
+}
+void CPULR35902::PR_DA() {
+    T += 8;
+    DE.left |= 0b00001000;
+    LOG("SET 3, D")
+}
+void CPULR35902::PR_DB() {
+    T += 8;
+    DE.right |= 0b00001000;
+    LOG("SET 3, E")
+}
+void CPULR35902::PR_DC() {
+    T += 8;
+    HL.left |= 0b00001000;
+    LOG("SET 3, H")
+}
+void CPULR35902::PR_DD() {
+    T += 8;
+    HL.right |= 0b00001000;
+    LOG("SET 3, L")
+}
+void CPULR35902::PR_DE() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    bus->write<uint8_t>(HL.w, value | 0b00001000);
+    LOG("SET 3, HL")
+}
+void CPULR35902::PR_DF() {
+    T += 8;
+    AF.left |= 0b00001000;
+    LOG("SET 3, A")
+}
+void CPULR35902::PR_E0() {
+    T += 8;
+    BC.left |= 0b00010000;
+    LOG("SET 4, B")
+}
+void CPULR35902::PR_E1() {
+    T += 8;
+    BC.right |= 0b00010000;
+    LOG("SET 4, C")
+}
+void CPULR35902::PR_E2() {
+    T += 8;
+    DE.left |= 0b00010000;
+    LOG("SET 4, D")
+}
+void CPULR35902::PR_E3() {
+    T += 8;
+    DE.right |= 0b00010000;
+    LOG("SET 4, E")
+}
+void CPULR35902::PR_E4() {
+    T += 8;
+    HL.left |= 0b00010000;
+    LOG("SET 4, H")
+}
+void CPULR35902::PR_E5() {
+    T += 8;
+    HL.right |= 0b00010000;
+    LOG("SET 4, L")
+}
+void CPULR35902::PR_E6() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    bus->write<uint8_t>(HL.w, value | 0b00010000);
+    LOG("SET 4, HL")
+}
+void CPULR35902::PR_E7() {
+    T += 8;
+    AF.left |= 0b00010000;
+    LOG("SET 4, A")
+}
+void CPULR35902::PR_E8() {
+    T += 8;
+    BC.left |= 0b00100000;
+    LOG("SET 5, B")
+}
+void CPULR35902::PR_E9() {
+    T += 8;
+    BC.right |= 0b00100000;
+    LOG("SET 5, C")
+}
+void CPULR35902::PR_EA() {
+    T += 8;
+    DE.left |= 0b00100000;
+    LOG("SET 5, D")
+}
+void CPULR35902::PR_EB() {
+    T += 8;
+    DE.right |= 0b00100000;
+    LOG("SET 5, E")
+}
+void CPULR35902::PR_EC() {
+    T += 8;
+    HL.left |= 0b00100000;
+    LOG("SET 5, H")
+}
+void CPULR35902::PR_ED() {
+    T += 8;
+    HL.right |= 0b00100000;
+    LOG("SET 5, L")
+}
+void CPULR35902::PR_EE() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    bus->write<uint8_t>(HL.w, value | 0b00100000);
+    LOG("SET 5, HL")
+}
+void CPULR35902::PR_EF() {
+    T += 8;
+    AF.left |= 0b00100000;
+    LOG("SET 5, A")
+}
+void CPULR35902::PR_F0() {
+    T += 8;
+    BC.left |= 0b01000000;
+    LOG("SET 6, B")
+}
+void CPULR35902::PR_F1() {
+    T += 8;
+    BC.right |= 0b01000000;
+    LOG("SET 6, C")
+}
+void CPULR35902::PR_F2() {
+    T += 8;
+    DE.left |= 0b01000000;
+    LOG("SET 6, D")
+}
+void CPULR35902::PR_F3() {
+    T += 8;
+    DE.right |= 0b01000000;
+    LOG("SET 6, E")
+}
+void CPULR35902::PR_F4() {
+    T += 8;
+    HL.left |= 0b01000000;
+    LOG("SET 6, H")
+}
+void CPULR35902::PR_F5() {
+    T += 8;
+    HL.right |= 0b01000000;
+    LOG("SET 6, L")
+}
+void CPULR35902::PR_F6() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    bus->write<uint8_t>(HL.w, value | 0b01000000);
+    LOG("SET 6, HL")
+}
+void CPULR35902::PR_F7() {
+    T += 8;
+    AF.left |= 0b01000000;
+    LOG("SET 6, A")
+}
+void CPULR35902::PR_F8() {
+    T += 8;
+    BC.left |= 0b10000000;
+    LOG("SET 7, B")
+}
+void CPULR35902::PR_F9() {
+    T += 8;
+    BC.right |= 0b10000000;
+    LOG("SET 7, C")
+}
+void CPULR35902::PR_FA() {
+    T += 8;
+    DE.left |= 0b10000000;
+    LOG("SET 7, D")
+}
+void CPULR35902::PR_FB() {
+    T += 8;
+    DE.right |= 0b10000000;
+    LOG("SET 7, E")
+}
+void CPULR35902::PR_FC() {
+    T += 8;
+    HL.left |= 0b10000000;
+    LOG("SET 7, H")
+}
+void CPULR35902::PR_FD() {
+    T += 8;
+    HL.right |= 0b10000000;
+    LOG("SET 7, L")
+}
+void CPULR35902::PR_FE() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    bus->write<uint8_t>(HL.w, value | 0b10000000);
+    LOG("SET 7, HL")
+}
+void CPULR35902::PR_FF() {
+    T += 8;
+    AF.left |= 0b10000000;
+    LOG("SET 7, A")
+}
 
 void CPULR35902::initOpcodeHandlers() {
     opcodeHandler[0x00] = std::bind(&CPULR35902::OP_00, this);
