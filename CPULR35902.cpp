@@ -246,8 +246,8 @@ void CPULR35902::OP_18() {
     T += 12;
     const auto relative = bus->read<uint8_t>(PC.w);
     PC.w++;
-    PC.w += relative;
-    LOG("JP $" + toHexString(relative))
+    PC.w += static_cast<int8_t>(relative);
+    LOG("JR $" + toHexString(relative))
 }
 void CPULR35902::OP_19() {
     T += 8;
@@ -304,9 +304,9 @@ void CPULR35902::OP_20() { // JP NZ, e8
     }
     else {
         T += 12;
-        PC.w += relative;
+        PC.w += static_cast<int8_t>(relative);
     }
-    LOG("JP NZ, $" + toHexString(relative))
+    LOG("JR NZ, $" + toHexString(relative))
 }
 void CPULR35902::OP_21() { // LD HL, n16
     T += 12;
@@ -361,12 +361,12 @@ void CPULR35902::OP_28() {
     const bool zero = getFlag(Flag::Z); 
     if(zero) {
         T += 12;
-        PC.w += relative;
+        PC.w += static_cast<int8_t>(relative);
     }
     else {
         T += 8;
     }
-    LOG("JP Z, $" + toHexString(relative))
+    LOG("JR Z, $" + toHexString(relative))
 }
 void CPULR35902::OP_29() {
     T += 8;
@@ -422,9 +422,9 @@ void CPULR35902::OP_30() {
     }
     else {
         T += 12;
-        PC.w += relative;
+        PC.w += static_cast<int8_t>(relative);
     }
-    LOG("JP NC, $" + toHexString(relative))
+    LOG("JR NC, $" + toHexString(relative))
 }
 void CPULR35902::OP_31() {
     T += 12;
@@ -479,12 +479,12 @@ void CPULR35902::OP_38() {
     const bool carry = getFlag(Flag::C); 
     if(carry) {
         T += 12;
-        PC.w += relative;
+        PC.w += static_cast<int8_t>(relative);
     }
     else {
         T += 8;
     }
-    LOG("JP C, $" + toHexString(relative))
+    LOG("JR C, $" + toHexString(relative))
 }
 void CPULR35902::OP_39() {
     T += 8;
@@ -2255,335 +2255,332 @@ void CPULR35902::PR_3F() {
 
 void CPULR35902::PR_40() {
     T += 8;
-    setFlags(!(BC.left & 0b000000001), 0, 1, -1);
+    setFlags(!(BC.left & 0b00000001), 0, 1, -1);
     LOG("BIT 0, B")
 }
 void CPULR35902::PR_41() {
     T += 8;
-    setFlags(!(BC.right & 0b000000001), 0, 1, -1);
+    setFlags(!(BC.right & 0b00000001), 0, 1, -1);
     LOG("BIT 0, C")
 }
 void CPULR35902::PR_42() {
     T += 8;
-    setFlags(!(DE.left & 0b000000001), 0, 1, -1);
+    setFlags(!(DE.left & 0b00000001), 0, 1, -1);
     LOG("BIT 0, D")
 }
 void CPULR35902::PR_43() {
     T += 8;
-    setFlags(!(DE.right & 0b000000001), 0, 1, -1);
+    setFlags(!(DE.right & 0b00000001), 0, 1, -1);
     LOG("BIT 0, E")
 }
 void CPULR35902::PR_44() {
     T += 8;
-    setFlags(!(HL.left & 0b000000001), 0, 1, -1);
+    setFlags(!(HL.left & 0b00000001), 0, 1, -1);
     LOG("BIT 0, H")
 }
 void CPULR35902::PR_45() {
     T += 8;
-    setFlags(!(HL.right & 0b000000001), 0, 1, -1);
+    setFlags(!(HL.right & 0b00000001), 0, 1, -1);
     LOG("BIT 0, L")
 }
 void CPULR35902::PR_46() {
     T += 8;
     const auto value = bus->read<uint8_t>(HL.w);
-    setFlags(!(value & 0b000000001), 0, 1, -1);
+    setFlags(!(value & 0b00000001), 0, 1, -1);
     LOG("BIT 0, (HL)")
 }
 void CPULR35902::PR_47() {
     T += 8;
-    setFlags(!(AF.left & 0b000000001), 0, 1, -1);
+    setFlags(!(AF.left & 0b00000001), 0, 1, -1);
     LOG("BIT 0, A")
 }
 
 void CPULR35902::PR_48() {
     T += 8;
-    setFlags(!(BC.left & 0b000000010), 0, 1, -1);
+    setFlags(!(BC.left & 0b00000010), 0, 1, -1);
     LOG("BIT 1, B")
 }
 void CPULR35902::PR_49() {
     T += 8;
-    setFlags(!(BC.right & 0b000000010), 0, 1, -1);
+    setFlags(!(BC.right & 0b00000010), 0, 1, -1);
     LOG("BIT 1, C")
 }
 void CPULR35902::PR_4A() {
     T += 8;
-    setFlags(!(DE.left & 0b000000010), 0, 1, -1);
+    setFlags(!(DE.left & 0b00000010), 0, 1, -1);
     LOG("BIT 1, D")
 }
 void CPULR35902::PR_4B() {
     T += 8;
-    setFlags(!(DE.right & 0b000000010), 0, 1, -1);
+    setFlags(!(DE.right & 0b00000010), 0, 1, -1);
     LOG("BIT 1, E")
 }
 void CPULR35902::PR_4C() {
     T += 8;
-    setFlags(!(HL.left & 0b000000010), 0, 1, -1);
+    setFlags(!(HL.left & 0b00000010), 0, 1, -1);
     LOG("BIT 1, H")
 }
 void CPULR35902::PR_4D() {
     T += 8;
-    setFlags(!(HL.right & 0b000000010), 0, 1, -1);
+    setFlags(!(HL.right & 0b00000010), 0, 1, -1);
     LOG("BIT 1, L")
 }
 void CPULR35902::PR_4E() {
     T += 8;
     const auto value = bus->read<uint8_t>(HL.w);
-    setFlags(!(value & 0b000000010), 0, 1, -1);
+    setFlags(!(value & 0b00000010), 0, 1, -1);
     LOG("BIT 1, (HL)")
 }
 void CPULR35902::PR_4F() {
     T += 8;
-    setFlags(!(AF.left & 0b000000010), 0, 1, -1);
+    setFlags(!(AF.left & 0b00000010), 0, 1, -1);
     LOG("BIT 1, A")
 }
-void CPULR35902::PR_40() {
+void CPULR35902::PR_50() {
     T += 8;
-    setFlags(!(BC.left & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, B")
+    setFlags(!(BC.left & 0b00000100), 0, 1, -1);
+    LOG("BIT 2, B")
 }
-void CPULR35902::PR_41() {
+void CPULR35902::PR_51() {
     T += 8;
-    setFlags(!(BC.right & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, C")
+    setFlags(!(BC.right & 0b00000100), 0, 1, -1);
+    LOG("BIT 2, C")
 }
-void CPULR35902::PR_42() {
+void CPULR35902::PR_52() {
     T += 8;
-    setFlags(!(DE.left & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, D")
+    setFlags(!(DE.left & 0b00000100), 0, 1, -1);
+    LOG("BIT 2, D")
 }
-void CPULR35902::PR_43() {
+void CPULR35902::PR_53() {
     T += 8;
-    setFlags(!(DE.right & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, E")
+    setFlags(!(DE.right & 0b00000100), 0, 1, -1);
+    LOG("BIT 2, E")
 }
-void CPULR35902::PR_44() {
+void CPULR35902::PR_54() {
     T += 8;
-    setFlags(!(HL.left & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, H")
+    setFlags(!(HL.left & 0b00000100), 0, 1, -1);
+    LOG("BIT 2, H")
 }
-void CPULR35902::PR_45() {
+void CPULR35902::PR_55() {
     T += 8;
-    setFlags(!(HL.right & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, L")
+    setFlags(!(HL.right & 0b00000100), 0, 1, -1);
+    LOG("BIT 2, L")
 }
-void CPULR35902::PR_46() {
+void CPULR35902::PR_56() {
     T += 8;
     const auto value = bus->read<uint8_t>(HL.w);
-    setFlags(!(value & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, (HL)")
+    setFlags(!(value & 0b00000100), 0, 1, -1);
+    LOG("BIT 2, (HL)")
 }
-void CPULR35902::PR_47() {
+void CPULR35902::PR_57() {
     T += 8;
-    setFlags(!(AF.left & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, A")
+    setFlags(!(AF.left & 0b00000100), 0, 1, -1);
+    LOG("BIT 2, A")
 }
-
-void CPULR35902::PR_48() {
+void CPULR35902::PR_58() {
     T += 8;
-    setFlags(!(BC.left & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, B")
+    setFlags(!(BC.left & 0b00001000), 0, 1, -1);
+    LOG("BIT 3, B")
 }
-void CPULR35902::PR_49() {
+void CPULR35902::PR_59() {
     T += 8;
-    setFlags(!(BC.right & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, C")
+    setFlags(!(BC.right & 0b00001000), 0, 1, -1);
+    LOG("BIT 3, C")
 }
-void CPULR35902::PR_4A() {
+void CPULR35902::PR_5A() {
     T += 8;
-    setFlags(!(DE.left & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, D")
+    setFlags(!(DE.left & 0b00001000), 0, 1, -1);
+    LOG("BIT 3, D")
 }
-void CPULR35902::PR_4B() {
+void CPULR35902::PR_5B() {
     T += 8;
-    setFlags(!(DE.right & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, E")
+    setFlags(!(DE.right & 0b00001000), 0, 1, -1);
+    LOG("BIT 3, E")
 }
-void CPULR35902::PR_4C() {
+void CPULR35902::PR_5C() {
     T += 8;
-    setFlags(!(HL.left & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, H")
+    setFlags(!(HL.left & 0b00001000), 0, 1, -1);
+    LOG("BIT 3, H")
 }
-void CPULR35902::PR_4D() {
+void CPULR35902::PR_5D() {
     T += 8;
-    setFlags(!(HL.right & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, L")
+    setFlags(!(HL.right & 0b00001000), 0, 1, -1);
+    LOG("BIT 3, L")
 }
-void CPULR35902::PR_4E() {
-    T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
-    setFlags(!(value & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, (HL)")
-}
-void CPULR35902::PR_4F() {
-    T += 8;
-    setFlags(!(AF.left & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, A")
-}
-void CPULR35902::PR_40() {
-    T += 8;
-    setFlags(!(BC.left & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, B")
-}
-void CPULR35902::PR_41() {
-    T += 8;
-    setFlags(!(BC.right & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, C")
-}
-void CPULR35902::PR_42() {
-    T += 8;
-    setFlags(!(DE.left & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, D")
-}
-void CPULR35902::PR_43() {
-    T += 8;
-    setFlags(!(DE.right & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, E")
-}
-void CPULR35902::PR_44() {
-    T += 8;
-    setFlags(!(HL.left & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, H")
-}
-void CPULR35902::PR_45() {
-    T += 8;
-    setFlags(!(HL.right & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, L")
-}
-void CPULR35902::PR_46() {
+void CPULR35902::PR_5E() {
     T += 8;
     const auto value = bus->read<uint8_t>(HL.w);
-    setFlags(!(value & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, (HL)")
+    setFlags(!(value & 0b00001000), 0, 1, -1);
+    LOG("BIT 3, (HL)")
 }
-void CPULR35902::PR_47() {
+void CPULR35902::PR_5F() {
     T += 8;
-    setFlags(!(AF.left & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, A")
+    setFlags(!(AF.left & 0b00001000), 0, 1, -1);
+    LOG("BIT 3, A")
 }
-
-void CPULR35902::PR_48() {
+void CPULR35902::PR_60() {
     T += 8;
-    setFlags(!(BC.left & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, B")
+    setFlags(!(BC.left & 0b00010000), 0, 1, -1);
+    LOG("BIT 4, B")
 }
-void CPULR35902::PR_49() {
+void CPULR35902::PR_61() {
     T += 8;
-    setFlags(!(BC.right & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, C")
+    setFlags(!(BC.right & 0b00010000), 0, 1, -1);
+    LOG("BIT 4, C")
 }
-void CPULR35902::PR_4A() {
+void CPULR35902::PR_62() {
     T += 8;
-    setFlags(!(DE.left & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, D")
+    setFlags(!(DE.left & 0b00010000), 0, 1, -1);
+    LOG("BIT 4, D")
 }
-void CPULR35902::PR_4B() {
+void CPULR35902::PR_63() {
     T += 8;
-    setFlags(!(DE.right & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, E")
+    setFlags(!(DE.right & 0b00010000), 0, 1, -1);
+    LOG("BIT 4, E")
 }
-void CPULR35902::PR_4C() {
+void CPULR35902::PR_64() {
     T += 8;
-    setFlags(!(HL.left & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, H")
+    setFlags(!(HL.left & 0b00010000), 0, 1, -1);
+    LOG("BIT 4, H")
 }
-void CPULR35902::PR_4D() {
+void CPULR35902::PR_65() {
     T += 8;
-    setFlags(!(HL.right & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, L")
+    setFlags(!(HL.right & 0b00010000), 0, 1, -1);
+    LOG("BIT 4, L")
 }
-void CPULR35902::PR_4E() {
-    T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
-    setFlags(!(value & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, (HL)")
-}
-void CPULR35902::PR_4F() {
-    T += 8;
-    setFlags(!(AF.left & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, A")
-}
-void CPULR35902::PR_40() {
-    T += 8;
-    setFlags(!(BC.left & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, B")
-}
-void CPULR35902::PR_41() {
-    T += 8;
-    setFlags(!(BC.right & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, C")
-}
-void CPULR35902::PR_42() {
-    T += 8;
-    setFlags(!(DE.left & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, D")
-}
-void CPULR35902::PR_43() {
-    T += 8;
-    setFlags(!(DE.right & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, E")
-}
-void CPULR35902::PR_44() {
-    T += 8;
-    setFlags(!(HL.left & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, H")
-}
-void CPULR35902::PR_45() {
-    T += 8;
-    setFlags(!(HL.right & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, L")
-}
-void CPULR35902::PR_46() {
+void CPULR35902::PR_66() {
     T += 8;
     const auto value = bus->read<uint8_t>(HL.w);
-    setFlags(!(value & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, (HL)")
+    setFlags(!(value & 0b00010000), 0, 1, -1);
+    LOG("BIT 4, (HL)")
 }
-void CPULR35902::PR_47() {
+void CPULR35902::PR_67() {
     T += 8;
-    setFlags(!(AF.left & 0b000000001), 0, 1, -1);
-    LOG("BIT 0, A")
+    setFlags(!(AF.left & 0b00010000), 0, 1, -1);
+    LOG("BIT 4, A")
 }
-
-void CPULR35902::PR_48() {
+void CPULR35902::PR_68() {
     T += 8;
-    setFlags(!(BC.left & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, B")
+    setFlags(!(BC.left & 0b00100000), 0, 1, -1);
+    LOG("BIT 5, B")
 }
-void CPULR35902::PR_49() {
+void CPULR35902::PR_69() {
     T += 8;
-    setFlags(!(BC.right & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, C")
+    setFlags(!(BC.right & 0b00100000), 0, 1, -1);
+    LOG("BIT 5, C")
 }
-void CPULR35902::PR_4A() {
+void CPULR35902::PR_6A() {
     T += 8;
-    setFlags(!(DE.left & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, D")
+    setFlags(!(DE.left & 0b00100000), 0, 1, -1);
+    LOG("BIT 5, D")
 }
-void CPULR35902::PR_4B() {
+void CPULR35902::PR_6B() {
     T += 8;
-    setFlags(!(DE.right & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, E")
+    setFlags(!(DE.right & 0b00100000), 0, 1, -1);
+    LOG("BIT 5, E")
 }
-void CPULR35902::PR_4C() {
+void CPULR35902::PR_6C() {
     T += 8;
-    setFlags(!(HL.left & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, H")
+    setFlags(!(HL.left & 0b00100000), 0, 1, -1);
+    LOG("BIT 5, H")
 }
-void CPULR35902::PR_4D() {
+void CPULR35902::PR_6D() {
     T += 8;
-    setFlags(!(HL.right & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, L")
+    setFlags(!(HL.right & 0b00100000), 0, 1, -1);
+    LOG("BIT 5, L")
 }
-void CPULR35902::PR_4E() {
+void CPULR35902::PR_6E() {
     T += 8;
     const auto value = bus->read<uint8_t>(HL.w);
-    setFlags(!(value & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, (HL)")
+    setFlags(!(value & 0b00100000), 0, 1, -1);
+    LOG("BIT 5, (HL)")
 }
-void CPULR35902::PR_4F() {
+void CPULR35902::PR_6F() {
     T += 8;
-    setFlags(!(AF.left & 0b000000010), 0, 1, -1);
-    LOG("BIT 1, A")
+    setFlags(!(AF.left & 0b00100000), 0, 1, -1);
+    LOG("BIT 5, A")
+}
+void CPULR35902::PR_70() {
+    T += 8;
+    setFlags(!(BC.left & 0b01000000), 0, 1, -1);
+    LOG("BIT 6, B")
+}
+void CPULR35902::PR_71() {
+    T += 8;
+    setFlags(!(BC.right & 0b01000000), 0, 1, -1);
+    LOG("BIT 6, C")
+}
+void CPULR35902::PR_72() {
+    T += 8;
+    setFlags(!(DE.left & 0b01000000), 0, 1, -1);
+    LOG("BIT 6, D")
+}
+void CPULR35902::PR_73() {
+    T += 8;
+    setFlags(!(DE.right & 0b01000000), 0, 1, -1);
+    LOG("BIT 6, E")
+}
+void CPULR35902::PR_74() {
+    T += 8;
+    setFlags(!(HL.left & 0b01000000), 0, 1, -1);
+    LOG("BIT 6, H")
+}
+void CPULR35902::PR_75() {
+    T += 8;
+    setFlags(!(HL.right & 0b01000000), 0, 1, -1);
+    LOG("BIT 6, L")
+}
+void CPULR35902::PR_76() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    setFlags(!(value & 0b01000000), 0, 1, -1);
+    LOG("BIT 6, (HL)")
+}
+void CPULR35902::PR_77() {
+    T += 8;
+    setFlags(!(AF.left & 0b01000000), 0, 1, -1);
+    LOG("BIT 6, A")
+}
+void CPULR35902::PR_78() {
+    T += 8;
+    setFlags(!(BC.left & 0b10000000), 0, 1, -1);
+    LOG("BIT 7, B")
+}
+void CPULR35902::PR_79() {
+    T += 8;
+    setFlags(!(BC.right & 0b10000000), 0, 1, -1);
+    LOG("BIT 7, C")
+}
+void CPULR35902::PR_7A() {
+    T += 8;
+    setFlags(!(DE.left & 0b10000000), 0, 1, -1);
+    LOG("BIT 7, D")
+}
+void CPULR35902::PR_7B() {
+    T += 8;
+    setFlags(!(DE.right & 0b10000000), 0, 1, -1);
+    LOG("BIT 7, E")
+}
+void CPULR35902::PR_7C() {
+    T += 8;
+    setFlags(!(HL.left & 0b10000000), 0, 1, -1);
+    LOG("BIT 7, H")
+}
+void CPULR35902::PR_7D() {
+    T += 8;
+    setFlags(!(HL.right & 0b10000000), 0, 1, -1);
+    LOG("BIT 7, L")
+}
+void CPULR35902::PR_7E() {
+    T += 8;
+    const auto value = bus->read<uint8_t>(HL.w);
+    setFlags(!(value & 0b10000000), 0, 1, -1);
+    LOG("BIT 7, (HL)")
+}
+void CPULR35902::PR_7F() {
+    T += 8;
+    setFlags(!(AF.left & 0b10000000), 0, 1, -1);
+    LOG("BIT 7, A")
 }
 void CPULR35902::PR_80() {
     T += 8;
