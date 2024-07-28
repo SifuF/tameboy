@@ -51,6 +51,8 @@ private:
     std::array<std::function<void()>, 256> opcodeHandler;
     std::array<std::function<void()>, 256> prefixHandler;
 
+    unsigned long long instructionCounter = 0;
+
     void OP_00();
     void OP_01();
     void OP_02();

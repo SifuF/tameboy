@@ -83,7 +83,15 @@ void CPULR35902::fetchDecodeExecute() {
         opcodeHandler[instruction]();
     }
 
-    std::cin.get();
+    LOGN(instructionCounter++);
+    static bool singleStep = false;
+    if(instructionCounter > 0x6039 ) {
+        singleStep = true;
+    }
+
+   if(singleStep) {
+       std::cin.get();
+   }
 }
 
 std::string CPULR35902::toHexString(int value) {
@@ -130,7 +138,7 @@ void CPULR35902::OP_06() {
     T += 8;
     BC.left = bus->read<uint8_t>(PC.w);
     PC.w++;
-    LOG("LD B, " + toHexString(BC.left))
+    LOG("LD B, $" + toHexString(BC.left))
 }
 void CPULR35902::OP_07() { // TODO Check Z flag
     T += 4;
@@ -1311,8 +1319,8 @@ void CPULR35902::OP_C0() {
 }
 void CPULR35902::OP_C1() {
     T += 12;
-    SP.w--;
     BC.w = bus->read<uint16_t>(SP.w);
+    SP.w += 2;
     LOG("POP BC")
 }
 void CPULR35902::OP_C2() {
@@ -1342,7 +1350,7 @@ void CPULR35902::OP_C4() {
     }
     else {
         T += 24;
-        SP.w--;
+        SP.w -= 2;
         bus->write<uint16_t>(SP.w, PC.w);
         PC.w = addr;
     }
@@ -1350,7 +1358,7 @@ void CPULR35902::OP_C4() {
 }
 void CPULR35902::OP_C5() {
     T += 16;
-    SP.w--;
+    SP.w -= 2;
     bus->write<uint16_t>(SP.w, BC.w);
     LOG("PUSH BC")
 }
@@ -1376,7 +1384,7 @@ void CPULR35902::OP_C8() {
     if(zero) {
         T += 20;
         PC.w = bus->read<uint16_t>(SP.w);
-        SP.w++;
+        SP.w += 2;
     }
     else {
         T += 8;
@@ -1386,7 +1394,7 @@ void CPULR35902::OP_C8() {
 void CPULR35902::OP_C9() {
     T += 16;
     PC.w = bus->read<uint16_t>(SP.w);
-    SP.w++;
+    SP.w += 2;
     LOG("RET")
 }
 void CPULR35902::OP_CA() {
@@ -1412,7 +1420,7 @@ void CPULR35902::OP_CC() {
     const bool zero = getFlag(Flag::Z);
     if(zero) {
         T += 24;
-        SP.w--;
+        SP.w -= 2;
         bus->write<uint16_t>(SP.w, PC.w);
         PC.w = addr;
     }
@@ -1425,7 +1433,7 @@ void CPULR35902::OP_CD() {
     T += 24;
     const auto addr = bus->read<uint16_t>(PC.w);
     PC.w += 2;
-    SP.w--;
+    SP.w -= 2;
     bus->write<uint16_t>(SP.w, PC.w);
     PC.w = addr;
     LOG("CALL, $" + toHexString(addr))
@@ -1461,8 +1469,8 @@ void CPULR35902::OP_D0() {
 }
 void CPULR35902::OP_D1() {
     T += 12;
-    SP.w--;
     DE.w = bus->read<uint16_t>(SP.w);
+    SP.w += 2;
     LOG("POP DE")
 }
 void CPULR35902::OP_D2() {
@@ -1490,7 +1498,7 @@ void CPULR35902::OP_D4() {
     }
     else {
         T += 24;
-        SP.w--;
+        SP.w -= 2;
         bus->write<uint16_t>(SP.w, PC.w);
         PC.w = addr;
     }
@@ -1498,7 +1506,7 @@ void CPULR35902::OP_D4() {
 }
 void CPULR35902::OP_D5() {
     T += 16;
-    SP.w--;
+    SP.w -= 2;
     bus->write<uint16_t>(SP.w, DE.w);
     LOG("PUSH DE")
 }
@@ -1524,7 +1532,7 @@ void CPULR35902::OP_D8() {
     if(carry) {
         T += 20;
         PC.w = bus->read<uint16_t>(SP.w);
-        SP.w++;
+        SP.w += 2;
     }
     else {
         T += 8;
@@ -1534,7 +1542,7 @@ void CPULR35902::OP_D8() {
 void CPULR35902::OP_D9() {
     T += 16;
     PC.w = bus->read<uint16_t>(SP.w);
-    SP.w++;
+    SP.w += 2;
     interrupts = true;
     LOG("RETI") 
 }
@@ -1560,7 +1568,7 @@ void CPULR35902::OP_DC() {
     const bool carry = getFlag(Flag::C);
     if(carry) {
         T += 24;
-        SP.w--;
+        SP.w -= 2;
         bus->write<uint16_t>(SP.w, PC.w);
         PC.w = addr;
     }
@@ -1593,18 +1601,18 @@ void CPULR35902::OP_E0() {
     const auto value = bus->read<uint8_t>(PC.w);
     PC.w++;
     bus->write<uint8_t>(0xFF00 + value, AF.left);
-    LOG("LDH ($" + toHexString(value) + "), A")  
+    LOG("LDH ($FF00+$" + toHexString(value) + "), A")
 }
 void CPULR35902::OP_E1() {
     T += 12;
-    SP.w--;
     HL.w = bus->read<uint16_t>(SP.w);
+    SP.w += 2;
     LOG("POP HL")
 }
 void CPULR35902::OP_E2() {
     T += 8;
-    bus->write<uint8_t>(BC.right, AF.left);
-    LOG("LD (C), A")
+    bus->write<uint8_t>(0xFF00 + BC.right, AF.left);
+    LOG("LD (SFF00+C), A")
 }
 void CPULR35902::OP_E3() {
     throw std::runtime_error("Illegal instruction!");
@@ -1614,7 +1622,7 @@ void CPULR35902::OP_E4() {
 }
 void CPULR35902::OP_E5() {
     T += 16;
-    SP.w--;
+    SP.w -= 2;
     bus->write<uint16_t>(SP.w, HL.w);
     LOG("PUSH HL")
 }
@@ -1683,18 +1691,18 @@ void CPULR35902::OP_F0() {
     const auto value = bus->read<uint8_t>(PC.w);
     PC.w++;
     AF.left = bus->read<uint8_t>(0xFF00 + value);
-    LOG("LDH A, ($" + toHexString(value) + ")")
+    LOG("LDH A, ($FF00+" + toHexString(value) + ")")
 }
 void CPULR35902::OP_F1() {
     T += 12;
-    SP.w--;
     AF.w = bus->read<uint16_t>(SP.w);
+    SP.w += 2;
     LOG("POP AF")
 }
 void CPULR35902::OP_F2() {
     T += 8;
-    AF.left = bus->read<uint8_t>(BC.right);
-    LOG("LD A, (C)")
+    AF.left = bus->read<uint8_t>(0xFF00 + BC.right);
+    LOG("LD A, (SFF00+C)")
 }
 void CPULR35902::OP_F3() {
     interrupts = false;
@@ -1705,7 +1713,7 @@ void CPULR35902::OP_F4() {
 }
 void CPULR35902::OP_F5() {
     T += 16;
-    SP.w--;
+    SP.w -= 2;
     bus->write<uint16_t>(SP.w, AF.w);
     LOG("PUSH AF")
 }

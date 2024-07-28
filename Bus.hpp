@@ -43,15 +43,15 @@ T Bus::read(uint16_t addr) {
 
 template<typename T>
 void Bus::write(uint16_t addr, T value) {
-   if(addr < 0x8000)
-       return;
+    if(addr < 0x8000)
+        return;
    
-   const auto & map = m_map;
-   if(sizeof(T)==1) {
+    const auto & map = m_map;
+    if(sizeof(T)==1) {
        	map[addr] = value;
-   }
-   else {
-       map[addr] = static_cast<uint8_t>(value >> 8);
-       map[addr + 1] = static_cast<uint8_t>(value);  
-   }
+    }
+    else {
+        map[addr] = static_cast<uint8_t>(value);
+        map[addr + 1] = static_cast<uint8_t>(value >> 8);
+    }
 }
