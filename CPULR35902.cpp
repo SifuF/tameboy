@@ -86,7 +86,7 @@ void CPULR35902::fetchDecodeExecute() {
     LOGN(instructionCounter++);
     static bool singleStep = false;
     if(instructionCounter > 0x6039 ) {
-        singleStep = true;
+       // singleStep = true;
     }
 
    if(singleStep) {
@@ -1374,7 +1374,7 @@ void CPULR35902::OP_C6() {
 }
 void CPULR35902::OP_C7() {
     T += 16;
-    SP.w--;
+    SP.w -= 2;
     bus->write<uint16_t>(SP.w, PC.w);
     PC.w = 0x00;
     LOG("RST $00")
@@ -1450,7 +1450,7 @@ void CPULR35902::OP_CE() {
 }
 void CPULR35902::OP_CF() {
     T += 16;
-    SP.w--;
+    SP.w -= 2;
     bus->write<uint16_t>(SP.w, PC.w);
     PC.w = 0x08;
     LOG("RST $08")
@@ -1522,7 +1522,7 @@ void CPULR35902::OP_D6() {
 }
 void CPULR35902::OP_D7() {
     T += 16;
-    SP.w--;
+    SP.w -= 2;
     bus->write<uint16_t>(SP.w, PC.w);
     PC.w = 0x10;
     LOG("RST $10")
@@ -1592,7 +1592,7 @@ void CPULR35902::OP_DE() {
 }
 void CPULR35902::OP_DF() {
     T += 16;
-    SP.w--;
+    SP.w -= 2;
     bus->write<uint16_t>(SP.w, PC.w);
     PC.w = 0x18;
     LOG("RST $18")
@@ -1636,7 +1636,7 @@ void CPULR35902::OP_E6() {
 }
 void CPULR35902::OP_E7() {
     T += 16;
-    SP.w--;
+    SP.w -= 2;
     bus->write<uint16_t>(SP.w, PC.w);
     PC.w = 0x20;
     LOG("RST $20")
@@ -1681,7 +1681,7 @@ void CPULR35902::OP_EE() {
 }
 void CPULR35902::OP_EF() {
     T += 16;
-    SP.w--;
+    SP.w -= 2;
     bus->write<uint16_t>(SP.w, PC.w);
     PC.w = 0x28;
     LOG("RST $28")
@@ -1727,7 +1727,7 @@ void CPULR35902::OP_F6() {
 }
 void CPULR35902::OP_F7() {
     T += 16;
-    SP.w--;
+    SP.w -= 2;
     bus->write<uint16_t>(SP.w, PC.w);
     PC.w = 0x30;
     LOG("RST $30")
@@ -1775,7 +1775,7 @@ void CPULR35902::OP_FE() {
 }
 void CPULR35902::OP_FF() {
     T += 16;
-    SP.w--;
+    SP.w -= 2;
     bus->write<uint16_t>(SP.w, PC.w);
     PC.w = 0x00;
     LOG("RST $38")
@@ -2260,7 +2260,6 @@ void CPULR35902::PR_3F() {
     setFlags((AF.left == 0), 0, 0, lsb);
     LOG("SRL A")
 }
-
 void CPULR35902::PR_40() {
     T += 8;
     setFlags(!(BC.left & 0b00000001), 0, 1, -1);
