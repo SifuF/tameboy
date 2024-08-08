@@ -1,6 +1,8 @@
 #pragma once
 
 #include "CPULR35902.hpp"
+#include "PPU.hpp"
+#include "Screen.hpp"
 
 #include <cassert>
 #include <iostream>
@@ -27,6 +29,8 @@ private:
     std::unique_ptr<uint8_t[]> m_boot = nullptr;
     std::unique_ptr<uint8_t[]> m_map = nullptr;
     CPULR35902 cpu;
+    PPU ppu;
+    Screen screen;
 };
 
 template<typename T>

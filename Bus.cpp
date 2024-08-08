@@ -17,9 +17,11 @@ Bus::~Bus() {
 }
 
 void Bus::start() {
-   while(true) {
-       cpu.fetchDecodeExecute();
-   }
+    while(true) {
+        cpu.fetchDecodeExecute();
+        ppu.tick();
+        screen.update(ppu.getFrameBuffer());
+    }
 }
 
 void Bus::readFile(char* buffer, const char* filename) {

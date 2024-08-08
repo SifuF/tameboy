@@ -68,6 +68,8 @@ bool CPULR35902::getFlag(Flag flag) {
 void CPULR35902::fetchDecodeExecute() {
     if(halt || stop)
         return;
+ 
+    LOGN(toHexString(instructionCounter++) + ": ");
 
     const auto instruction = bus->read<uint8_t>(PC.w);
     PC.w++;
@@ -83,7 +85,6 @@ void CPULR35902::fetchDecodeExecute() {
         opcodeHandler[instruction]();
     }
 
-    LOGN(instructionCounter++);
     static bool singleStep = false;
     if(instructionCounter > 0x6039 ) {
        // singleStep = true;
