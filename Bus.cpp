@@ -3,7 +3,8 @@
 
 Bus::Bus() : m_boot(std::make_unique<uint8_t[]>(0x100)),
              m_map(std::make_unique<uint8_t[]>(0x10000)),
-             cpu(this) {
+             cpu(this),
+             ppu(this) {
     
     readFile((char*)m_boot.get(), "roms/DMG_ROM.bin");
     readFile((char*)m_map.get(), "roms/tetris.bin");
