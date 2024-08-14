@@ -18,10 +18,15 @@ Bus::~Bus() {
 }
 
 void Bus::start() {
+    unsigned long long instructionCounter = 0;
     while(true) {
         cpu.fetchDecodeExecute();
-        ppu.tick();
-        screen.update(ppu.getFrameBuffer());
+        
+        instructionCounter++;
+        if(instructionCounter % 500 == 0) {
+            ppu.tick();
+            screen.update(ppu.getFrameBuffer());
+        }
     }
 }
 
