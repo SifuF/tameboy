@@ -18,7 +18,7 @@ PPU::PPU(Bus* bus) : bus(bus), frameBuffer(160*144*4) {
 }
 
 void PPU::tick() {
-    const auto LCDC = bus->read<uint8_t>(0xFF40);
+/*    const auto LCDC = bus->read<uint8_t>(0xFF40);
     
     const auto enableLcdAndPpu = static_cast<bool>((LCDC & 0x10000000) >> 7); 
     if(!enableLcdAndPpu) {
@@ -37,17 +37,41 @@ void PPU::tick() {
     const unsigned tileData = tileDataArea ? 0x8000 : 0x9000;
     const unsigned background = backgroundTileMap ? 0x9800 : 0x9C00;
     const unsigned window = windowTileMap ? 0x9800 : 0x9C00;
+*/
+    // visible lcd area is 160x144 pixels or 20x18 tiles
+    // scrollable over an area of 256x256 pixels or 32x32 tiles
+    const auto colorLookup = [](const bool msb, const bool lsb) -> uint8_t {
+        switch( (msb<<1) | lsb ) {
+            case 0 : return 0;
+            case 1 : return 80;
+            case 2 : return 170;
+            default : return 255;
+        }
+    };    
 
-    for(int y = 0; y<144; ++y) {
-        for(int x=0; x<160; ++x) {
-            auto value = bus->read<uint8_t>(tileData + x);
-            if(value != 0)
-                value = 255;
+    auto drawTile = [this, colorLookup](const int x, const int y, const int tile) {
+        const int screenStart = x*8*4 + y*8*4*160;
+        const int tileData = 0x8000;
+        const int tileStart = tileData + tile*16;
 
-            frameBuffer[4*x + 160*4*y] = value;
-            frameBuffer[4*x + 1 + 160*4*y] = value;
-            frameBuffer[4*x + 2 + 160*4*y] = value;
-            frameBuffer[4*x + 3 + 160*4*y] = 255;
+        for(int j=0; j<8; ++j) { // 8 rows in a tile
+            const auto lsByte = bus->read<uint8_t>(tileStart + 2*j);
+            const auto msByte = bus->read<uint8_t>(tileStart + 2*j + 1);
+            for(int i=0; i<8; ++i) { // one 8 tile row at a time
+                const auto lsBit = static_cast<bool>(lsByte >> (7-i));
+                const auto msBit = static_cast<bool>(msByte >> (7-i));
+                const auto color = colorLookup(msBit, lsBit);
+                frameBuffer[screenStart + 4*i + j*160*4] = color;  
+                frameBuffer[screenStart + 4*i + 1 + j*160*4] = color;
+                frameBuffer[screenStart + 4*i + 2 + j*160*4] = color;
+                frameBuffer[screenStart + 4*i + 3 + j*160*4] = 255;    
+            }
+        }
+    };
+
+    for(int j = 0; j<18; ++j) {
+        for(int i=0; i<20; ++i) {
+            drawTile(i, j, 0);
         }
     }
 }

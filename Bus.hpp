@@ -24,6 +24,7 @@ private:
     void readFile(char* buffer, const char* filename);
     void printMap(uint16_t offset, uint16_t lines);
     void parseHeader();
+    void buildVram();
 
     bool bootRom = true;
     std::unique_ptr<uint8_t[]> m_boot = nullptr;

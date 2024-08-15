@@ -1,4 +1,6 @@
 #include "Bus.hpp"
+
+#include <cstring>
 #include <fstream>
 
 Bus::Bus() : m_boot(std::make_unique<uint8_t[]>(0x100)),
@@ -11,16 +13,56 @@ Bus::Bus() : m_boot(std::make_unique<uint8_t[]>(0x100)),
     
     parseHeader();
     printMap(0x0, 4);
+    buildVram();
 }
 
 Bus::~Bus() {
 
 }
 
+void Bus::buildVram() {
+    uint8_t tileX[16] = {
+        0b10000010, 0b00000000,
+        0b01000100, 0b00000000,
+        0b00101000, 0b00000000,
+        0b00010000, 0b00000000,
+        0b00101000, 0b00000000,
+        0b01000100, 0b00000000,
+        0b10000010, 0b00000000,
+        0b00000000, 0b00000000
+    };
+
+    uint8_t tileF[16] = {
+        0b11111110, 0b00000000,
+        0b10000000, 0b01111110,
+        0b10000000, 0b00000000,
+        0b11110000, 0b00000000,
+        0b10000000, 0b01110000,
+        0b10000000, 0b00000000,
+        0b10000000, 0b00000000,
+        0b00000000, 0b00000000
+    };
+
+    // X in 0th and F in 1st tile in block 0
+    std::memcpy(m_map.get() + 0x8000, tileX, 16);
+    std::memcpy(m_map.get() + 0x8016, tileF, 16);
+
+    // same for block 2
+    std::memcpy(m_map.get() + 0x9000, tileF, 16);
+    std::memcpy(m_map.get() + 0x9016, tileX, 16);
+
+    // fill background with 0th tile
+    std::memset(m_map.get() + 0x9800, 0, 32*32);
+
+    // fill window with 1st tile
+    std::memset(m_map.get() + 0x9C00, 1, 32*32);
+
+}
+
 void Bus::start() {
     unsigned long long instructionCounter = 0;
     while(true) {
-        cpu.fetchDecodeExecute();
+        //cpu.fetchDecodeExecute();
         
         instructionCounter++;
         if(instructionCounter % 500 == 0) {
