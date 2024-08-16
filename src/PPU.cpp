@@ -4,18 +4,7 @@
 
 #include <cstdlib>
 
-PPU::PPU(Bus* bus) : bus(bus), frameBuffer(160*144*4) {
-   // for(int i=0; i<160*144*4; i+=4) {
-   //     frameBuffer[i] = rand() % 256;
-   //     frameBuffer[i+1] = rand() % 256;
-   //     frameBuffer[i+2] = rand() % 256;
-   //     frameBuffer[i+3] = 255;
-   // }
-
-    for(int i=0x8000; i<0x9800; i++) {
-        bus->write<uint8_t>(i, rand() % 256);
-    } 
-}
+PPU::PPU(Bus* bus) : bus(bus), frameBuffer(160*144*4) {}
 
 void PPU::tick() {
     const auto LCDC = bus->read<uint8_t>(0xFF40);

@@ -4,12 +4,13 @@
 
 #include <iostream>
 #include <sstream>
+#include <string>
 
-//#define LOG(x) std::cout << std::hex << x << std::endl;
-//#define LOGN(x) std::cout << std::hex << x;
+#define LOG(x) std::cout << std::hex << x << std::endl;
+#define LOGN(x) std::cout << std::hex << x;
 
-#define LOG(x)
-#define LOGN(x)
+//#define LOG(x)
+//#define LOGN(x)
 
 CPULR35902::CPULR35902(Bus* bus) : bus(bus) {
     initOpcodeHandlers();
@@ -72,7 +73,7 @@ void CPULR35902::fetchDecodeExecute() {
     if(halt || stop)
         return;
  
-    LOGN(toHexString(instructionCounter++) + ": ");
+    LOGN(toHexString(instructionCounter) + ": ");
 
     const auto instruction = bus->read<uint8_t>(PC.w);
     PC.w++;
@@ -88,14 +89,20 @@ void CPULR35902::fetchDecodeExecute() {
         opcodeHandler[instruction]();
     }
 
-    static bool singleStep = false;
-    if(instructionCounter > 0x6039 ) {
-       // singleStep = true;
+    static unsigned long long skips = 0;
+    if (skips == 0) {
+        std::string str{};
+        try {
+            std::getline(std::cin, str);
+            skips = std::stoi(str);
+        }
+        catch (...) {}
+    }
+    else {
+        skips--;
     }
 
-   if(singleStep) {
-       std::cin.get();
-   }
+   instructionCounter++;
 }
 
 std::string CPULR35902::toHexString(int value) {

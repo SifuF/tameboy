@@ -64,7 +64,7 @@ void Bus::buildVram() {
 void Bus::start() {
     unsigned long long instructionCounter = 0;
     while(true) {
-        //cpu.fetchDecodeExecute();
+        cpu.fetchDecodeExecute();
         
         instructionCounter++;
         if(instructionCounter % 500 == 0) {
