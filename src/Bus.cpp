@@ -47,6 +47,10 @@ void Bus::buildVram() {
     std::memcpy(m_map.get() + 0x8000, tileX, 16);
     std::memcpy(m_map.get() + 0x8000 + 16, tileF, 16);
 
+    // same for block 1
+    std::memcpy(m_map.get() + 0x8800, tileF, 16);
+    std::memcpy(m_map.get() + 0x8800 + 16, tileX, 16);
+
     // same for block 2
     std::memcpy(m_map.get() + 0x9000, tileF, 16);
     std::memcpy(m_map.get() + 0x9000 + 16, tileX, 16);
@@ -69,7 +73,7 @@ void Bus::start() {
         instructionCounter++;
         if(instructionCounter % 500 == 0) {
             ppu.tick();
-            screen.update(ppu.getFrameBuffer());
+            screen.update(ppu.getFrameBuffer(), ppu.getVramDisplayBuffer());
         }
     }
 }

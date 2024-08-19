@@ -4,9 +4,66 @@
 
 #include <cstdlib>
 
-PPU::PPU(Bus* bus) : bus(bus), frameBuffer(160*144*4) {}
+PPU::PPU(Bus* bus) : bus(bus),
+frameBuffer(160 * 144 * 4), // 160 x 144 x 4 bits RGBA. 
+vramDisplayBuffer(3 * 128 * 8 * 8 * 4) // 3 blocks, 128 tiles in each block, each tile 8x8 pixels, each pixel 4 bits RGBA
+{}
+
+uint8_t PPU::colorLookup(const bool msb, const bool lsb) {
+    switch ((msb << 1) | lsb) {
+        case 0: return 0;
+        case 1: return 80;
+        case 2: return 170;
+        default: return 255;
+    }
+};
+
+auto PPU::drawTile(std::vector<uint8_t>& buffer, int width, const uint8_t x, const uint8_t y, const uint8_t tile, const bool mode) {
+    const int screenStart = x * 8 * 4 + y * 8 * 4 * width;
+    int tileData = 0x8000;
+    if (!mode) {
+        if (tile < 128) {
+            tileData = 0x9000;
+        }
+        else {
+            tileData = 0x8800;
+        }
+    }
+    const int tileStart = tileData + tile * 16;
+
+    for (int j = 0; j < 8; ++j) { // 8 rows in a tile
+        const auto lsByte = bus->read<uint8_t>(tileStart + 2 * j);
+        const auto msByte = bus->read<uint8_t>(tileStart + 2 * j + 1);
+        for (int i = 0; i < 8; ++i) { // one 8 tile row at a time
+            const auto lsBit = static_cast<bool>(lsByte & (1 << (7 - i)));
+            const auto msBit = static_cast<bool>(msByte & (1 << (7 - i)));
+            const auto color = colorLookup(msBit, lsBit);
+            buffer[screenStart + 4 * i + j * width * 4] = color;
+            buffer[screenStart + 4 * i + 1 + j * width * 4] = color;
+            buffer[screenStart + 4 * i + 2 + j * width * 4] = color;
+            buffer[screenStart + 4 * i + 3 + j * width * 4] = 255;
+        }
+    }
+};
+
+void PPU::updateVramDisplay() {
+    // blocks 1 and 3
+    for (int j = 0; j < 16; ++j) {
+        for (int i = 0; i < 16; ++i) {
+            drawTile(vramDisplayBuffer, 128, i, j, i + 16 * j, 1);
+        }
+    }
+    //block 3
+    for (int j = 16; j < 24; ++j) {
+        for (int i = 0; i < 16; ++i) {
+            drawTile(vramDisplayBuffer, 128, i, j, i + 16 * j, 0);
+        }
+    }
+}
 
 void PPU::tick() {
+    updateVramDisplay();
+
     const auto LCDC = bus->read<uint8_t>(0xFF40);
     
     const auto enableLcdAndPpu = static_cast<bool>((LCDC & 0x10000000) >> 7); 
@@ -29,43 +86,6 @@ void PPU::tick() {
     
     // visible lcd area is 160x144 pixels or 20x18 tiles
     // scrollable over an area of 256x256 pixels or 32x32 tiles
-    const auto colorLookup = [](const bool msb, const bool lsb) -> uint8_t {
-        switch( (msb<<1) | lsb ) {
-            case 0 : return 0;
-            case 1 : return 80;
-            case 2 : return 170;
-            default : return 255;
-        }
-    };    
-
-    auto drawTile = [this, colorLookup](const uint8_t x, const uint8_t y, const uint8_t tile, const bool mode) {
-        const int screenStart = x*8*4 + y*8*4*160;
-        int tileData = 0x8000;
-        if (!mode) {
-            if (tile < 128) {
-                tileData = 0x9000;
-            }
-            else {
-                tileData = 0x8800;
-            }
-        }
-        const int tileStart = tileData + tile*16;
-
-        for(int j=0; j<8; ++j) { // 8 rows in a tile
-            const auto lsByte = bus->read<uint8_t>(tileStart + 2*j);
-            const auto msByte = bus->read<uint8_t>(tileStart + 2*j + 1);
-            for(int i=0; i<8; ++i) { // one 8 tile row at a time
-                const auto lsBit = static_cast<bool>(lsByte & (1 << (7 - i)));
-                const auto msBit = static_cast<bool>(msByte & (1 << (7 - i)));
-                const auto color = colorLookup(msBit, lsBit);
-                frameBuffer[screenStart + 4*i + j*160*4] = color;  
-                frameBuffer[screenStart + 4*i + 1 + j*160*4] = color;
-                frameBuffer[screenStart + 4*i + 2 + j*160*4] = color;
-                frameBuffer[screenStart + 4*i + 3 + j*160*4] = 255;    
-            }
-        }
-    };
-
     for(int j = 0; j<18; ++j) {
         for(int i=0; i<20; ++i) {
             const uint16_t addr = backgroundTileMap ? 0x9C00 : 0x9800;
@@ -73,7 +93,7 @@ void PPU::tick() {
             if (tile != 0) {
                 std::cout << "!";
             }
-            drawTile(i, j, tile, tileDataArea);
+            drawTile(frameBuffer, 160, i, j, tile, tileDataArea);
         }
     }
 }

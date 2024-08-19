@@ -4,28 +4,44 @@
 #include <iostream>
 
 Screen::Screen() {
-    window.create(sf::VideoMode(width, height), "tameBOY");
-    texture.create(width, height);
-    window.setSize(sf::Vector2u(scale*width, scale*height));
+    mainWindow.create(sf::VideoMode(mainWidth, mainHeight), "tameBOY");
+    mainTexture.create(mainWidth, mainHeight);
+    mainWindow.setSize(sf::Vector2u(mainScale* mainWidth, mainScale* mainHeight));
+
+    debugWindow.create(sf::VideoMode(debugWidth, debugHeight), "VRAM");
+    debugTexture.create(debugWidth, debugHeight);
+    debugWindow.setSize(sf::Vector2u(debugScale * debugWidth, debugScale * debugHeight));
 }
 
-void Screen::update(const std::vector<uint8_t> & frameBuffer) {
-    if(!window.isOpen()) {
+void Screen::update(const std::vector<uint8_t> & frameBuffer, const std::vector<uint8_t>& vramDisplayBuffer) {
+    if(!mainWindow.isOpen()) {
         running = false;
     }
 
-    sf::Event event;
-    while (window.pollEvent(event))
+    sf::Event mainEvent;
+    while (mainWindow.pollEvent(mainEvent))
     {
-        if (event.type == sf::Event::Closed)
-            window.close();
+        if (mainEvent.type == sf::Event::Closed)
+            mainWindow.close();
     }
 
-    texture.update(frameBuffer.data());
-    sprite.setTexture(texture);
+    sf::Event debugEvent;
+    while (debugWindow.pollEvent(debugEvent))
+    {
+        if (debugEvent.type == sf::Event::Closed)
+            debugWindow.close();
+    }
 
-    window.clear();
-    window.draw(sprite);
-    window.display();
+    mainTexture.update(frameBuffer.data());
+    mainSprite.setTexture(mainTexture);
+    mainWindow.clear();
+    mainWindow.draw(mainSprite);
+    mainWindow.display();
+
+    debugTexture.update(vramDisplayBuffer.data());
+    debugSprite.setTexture(debugTexture);
+    debugWindow.clear();
+    debugWindow.draw(debugSprite);
+    debugWindow.display();
 }
 
