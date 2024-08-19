@@ -90,7 +90,12 @@ void CPULR35902::fetchDecodeExecute() {
     }
 
     static unsigned long long skips = 0;
+    if (instruction == 0x11) {
+        //skips = 0;
+    }
+    
     if (skips == 0) {
+        paused = true;
         std::string str{};
         try {
             std::getline(std::cin, str);
@@ -100,6 +105,7 @@ void CPULR35902::fetchDecodeExecute() {
     }
     else {
         skips--;
+        paused = false;
     }
 
    instructionCounter++;
@@ -624,7 +630,7 @@ void CPULR35902::OP_4E() {
 }
 void CPULR35902::OP_4F() {
     T += 4;
-    BC.right = BC.left;
+    BC.right = AF.left;
     LOG("LD C, A")
 }
 void CPULR35902::OP_50() {

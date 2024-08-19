@@ -43,17 +43,23 @@ void Bus::buildVram() {
         0b00000000, 0b00000000
     };
 
+    uint8_t tileO[16] = {
+        0b01111100, 0b01111100,
+        0b10000010, 0b10000010,
+        0b10000010, 0b10000010,
+        0b10000010, 0b10000010,
+        0b10000010, 0b10000010,
+        0b10000010, 0b10000010,
+        0b01111100, 0b01111100,
+        0b00000000, 0b00000000
+    };
+
     // X in 0th and F in 1st tile in block 0
-    std::memcpy(m_map.get() + 0x8000, tileX, 16);
-    std::memcpy(m_map.get() + 0x8000 + 16, tileF, 16);
-
-    // same for block 1
-    std::memcpy(m_map.get() + 0x8800, tileF, 16);
-    std::memcpy(m_map.get() + 0x8800 + 16, tileX, 16);
-
-    // same for block 2
-    std::memcpy(m_map.get() + 0x9000, tileF, 16);
-    std::memcpy(m_map.get() + 0x9000 + 16, tileX, 16);
+    for (int i = 0; i < 128; ++i) {
+        std::memcpy(m_map.get() + 0x8000 + i * 16, tileX, 16); // fill block 0 with X
+        std::memcpy(m_map.get() + 0x8800 + i * 16, tileF, 16); // fill block 1 with F
+        std::memcpy(m_map.get() + 0x9000 + i * 16, tileO, 16); // fill block 2 with O
+    }
 
     // fill background with 0th tile
     std::memset(m_map.get() + 0x9800, 0, 32*32);
@@ -71,7 +77,7 @@ void Bus::start() {
         cpu.fetchDecodeExecute();
         
         instructionCounter++;
-        if(instructionCounter % 500 == 0) {
+        if(instructionCounter % 100 == 0 || cpu.getPaused()) {
             ppu.tick();
             screen.update(ppu.getFrameBuffer(), ppu.getVramDisplayBuffer());
         }

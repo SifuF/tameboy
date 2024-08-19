@@ -66,19 +66,19 @@ void PPU::tick() {
 
     const auto LCDC = bus->read<uint8_t>(0xFF40);
     
-    const auto enableLcdAndPpu = static_cast<bool>((LCDC & 0x10000000) >> 7); 
+    const auto enableLcdAndPpu = static_cast<bool>((LCDC & 0b10000000) >> 7); 
     if(!enableLcdAndPpu) {
-        //return;
+        return;
     }
     
     // tiles are 8x8 pixels and 2 bits per pixel -> 16 bytes per tile
-    const auto windowTileMap = static_cast<bool>((LCDC & 0x01000000) >> 6); // false:9800-9BFF, true:9C00-9FFF (32x32 = 1024 bytes)
-    const auto enableWindow =  static_cast<bool>((LCDC & 0x00100000) >> 5);
-    const auto tileDataArea = static_cast<bool>((LCDC & 0x00010000) >> 4); // false:8000-97FF, true:8800-8FFF (4096 bytes)
-    const auto backgroundTileMap = static_cast<bool>((LCDC & 0x00001000) >> 3); // false:9800-9BFF, true:9C00-9FFF (32x32 = 1024 bytes)
-    const auto objSize = static_cast<bool>((LCDC & 0x00000100) >> 2); // false:8x8, true8x16
-    const auto enableObj = static_cast<bool>((LCDC & 0x00000010) >> 1);
-    const auto enableBackgroundAndWindow = static_cast<bool>(LCDC & 0x00000001);
+    const auto windowTileMap = static_cast<bool>((LCDC & 0b01000000) >> 6); // false:9800-9BFF, true:9C00-9FFF (32x32 = 1024 bytes)
+    const auto enableWindow =  static_cast<bool>((LCDC & 0b00100000) >> 5);
+    const auto tileDataArea = static_cast<bool>((LCDC & 0b00010000) >> 4); // false:8000-97FF, true:8800-8FFF (4096 bytes)
+    const auto backgroundTileMap = static_cast<bool>((LCDC & 0b00001000) >> 3); // false:9800-9BFF, true:9C00-9FFF (32x32 = 1024 bytes)
+    const auto objSize = static_cast<bool>((LCDC & 0b00000100) >> 2); // false:8x8, true8x16
+    const auto enableObj = static_cast<bool>((LCDC & 0b00000010) >> 1);
+    const auto enableBackgroundAndWindow = static_cast<bool>(LCDC & 0b00000001);
 
     const unsigned tileData = tileDataArea ? 0x8000 : 0x9000;
     const unsigned background = backgroundTileMap ? 0x9800 : 0x9C00;
@@ -88,11 +88,9 @@ void PPU::tick() {
     // scrollable over an area of 256x256 pixels or 32x32 tiles
     for(int j = 0; j<18; ++j) {
         for(int i=0; i<20; ++i) {
-            const uint16_t addr = backgroundTileMap ? 0x9C00 : 0x9800;
+            //const uint16_t addr = backgroundTileMap ? 0x9C00 : 0x9800;
+            const uint16_t addr = 0x9C00;
             const auto tile = bus->read<uint8_t>(addr + i);
-            if (tile != 0) {
-                std::cout << "!";
-            }
             drawTile(frameBuffer, 160, i, j, tile, tileDataArea);
         }
     }
