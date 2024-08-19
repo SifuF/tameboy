@@ -77,9 +77,9 @@ void Bus::start() {
         cpu.fetchDecodeExecute();
         
         instructionCounter++;
-        if(instructionCounter % 100 == 0 || cpu.getPaused()) {
+        if(instructionCounter % 10 == 0 || cpu.getPaused()) {
             ppu.tick();
-            screen.update(ppu.getFrameBuffer(), ppu.getVramDisplayBuffer());
+            screen.update(ppu.getFrameBuffer(), ppu.getTileDataBuffer(), ppu.getTileMapBuffer());
         }
     }
 }

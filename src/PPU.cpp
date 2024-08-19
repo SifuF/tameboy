@@ -6,7 +6,8 @@
 
 PPU::PPU(Bus* bus) : bus(bus),
 frameBuffer(160 * 144 * 4), // 160 x 144 x 4 bits RGBA. 
-vramDisplayBuffer(3 * 128 * 8 * 8 * 4) // 3 blocks, 128 tiles in each block, each tile 8x8 pixels, each pixel 4 bits RGBA
+tileDataBuffer(3 * 128 * 8 * 8 * 4), // 3 blocks, 128 tiles in each block, each tile 8x8 pixels, each pixel 4 bits RGBA
+tileMapBuffer(2 * 32 * 32 * 8 * 8 * 4) // 2 maps, 32x32 tiles in each map, each tile 8x8 pixels, each pixel 4 bits RGBA
 {}
 
 uint8_t PPU::colorLookup(const bool msb, const bool lsb) {
@@ -50,13 +51,29 @@ void PPU::updateVramDisplay() {
     // blocks 1 and 3
     for (int j = 0; j < 16; ++j) {
         for (int i = 0; i < 16; ++i) {
-            drawTile(vramDisplayBuffer, 128, i, j, i + 16 * j, 1);
+            drawTile(tileDataBuffer, 128, i, j, i + 16 * j, 1);
         }
     }
-    //block 3
+    // block 3
     for (int j = 16; j < 24; ++j) {
         for (int i = 0; i < 16; ++i) {
-            drawTile(vramDisplayBuffer, 128, i, j, i + 16 * j, 0);
+            drawTile(tileDataBuffer, 128, i, j, i + 16 * j, 0);
+        }
+    }
+
+    // background
+    for (int j = 0; j < 32; ++j) {
+        for (int i = 0; i < 32; ++i) {
+            const auto tile = bus->read<uint8_t>(0x9800 + i + 32 * j);
+            drawTile(tileMapBuffer, 256, i, j, tile, 1);
+        }
+    }
+
+    // window
+    for (int j = 0; j < 32; ++j) {
+        for (int i = 0; i < 32; ++i) {
+            const auto tile = bus->read<uint8_t>(0x9C00 + i + 32 * j);
+            drawTile(tileMapBuffer, 256, i, j + 32, tile, 0);
         }
     }
 }
@@ -88,9 +105,8 @@ void PPU::tick() {
     // scrollable over an area of 256x256 pixels or 32x32 tiles
     for(int j = 0; j<18; ++j) {
         for(int i=0; i<20; ++i) {
-            //const uint16_t addr = backgroundTileMap ? 0x9C00 : 0x9800;
-            const uint16_t addr = 0x9C00;
-            const auto tile = bus->read<uint8_t>(addr + i);
+            const uint16_t addr = backgroundTileMap ? 0x9C00 : 0x9800;
+            const auto tile = bus->read<uint8_t>(addr + i + 32 * j); // 32 width because we are sampling 32x32 tilemap
             drawTile(frameBuffer, 160, i, j, tile, tileDataArea);
         }
     }

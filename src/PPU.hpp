@@ -10,7 +10,8 @@ public:
     PPU(Bus* bus);
     void tick();
     std::vector<uint8_t>& getFrameBuffer() { return frameBuffer; }
-    std::vector<uint8_t>& getVramDisplayBuffer() { return vramDisplayBuffer; }
+    std::vector<uint8_t>& getTileDataBuffer() { return tileDataBuffer; }
+    std::vector<uint8_t>& getTileMapBuffer() { return tileMapBuffer; }
 
 private:
     uint8_t colorLookup(const bool msb, const bool lsb);
@@ -18,6 +19,7 @@ private:
     void updateVramDisplay();
 
     std::vector<uint8_t> frameBuffer;
-    std::vector<uint8_t> vramDisplayBuffer;
+    std::vector<uint8_t> tileDataBuffer;
+    std::vector<uint8_t> tileMapBuffer;
     Bus* bus = nullptr;
 };
