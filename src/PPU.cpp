@@ -5,9 +5,9 @@
 #include <cstdlib>
 
 PPU::PPU(Bus* bus) : bus(bus),
-frameBuffer(160 * 144 * 4), // 160 x 144 x 4 bits RGBA. 
-tileDataBuffer(3 * 128 * 8 * 8 * 4), // 3 blocks, 128 tiles in each block, each tile 8x8 pixels, each pixel 4 bits RGBA
-tileMapBuffer(2 * 32 * 32 * 8 * 8 * 4) // 2 maps, 32x32 tiles in each map, each tile 8x8 pixels, each pixel 4 bits RGBA
+frameBuffer(160 * 144 * 4), // 160 x 144 x 4 bytes RGBA
+tileDataBuffer(3 * 128 * 8 * 8 * 4), // 3 blocks, 128 tiles in each block, each tile 8x8 pixels, each pixel 4 bytes RGBA
+tileMapBuffer(2 * 32 * 32 * 8 * 8 * 4) // 2 maps, 32x32 tiles in each map, each tile 8x8 pixels, each pixel 4 bytes RGBA
 {}
 
 uint8_t PPU::colorLookup(const bool msb, const bool lsb) {
@@ -89,25 +89,25 @@ void PPU::tick() {
     }
     
     // tiles are 8x8 pixels and 2 bits per pixel -> 16 bytes per tile
-    const auto windowTileMap = static_cast<bool>((LCDC & 0b01000000) >> 6); // false:9800-9BFF, true:9C00-9FFF (32x32 = 1024 bytes)
+    const auto windowTileMapAddr = static_cast<bool>((LCDC & 0b01000000) >> 6) ? 0x9800 : 0x9C00; // 9800-9BFF : 9C00-9FFF (32x32 = 1024 bytes)
     const auto enableWindow =  static_cast<bool>((LCDC & 0b00100000) >> 5);
-    const auto tileDataArea = static_cast<bool>((LCDC & 0b00010000) >> 4); // false:8000-97FF, true:8800-8FFF (4096 bytes)
-    const auto backgroundTileMap = static_cast<bool>((LCDC & 0b00001000) >> 3); // false:9800-9BFF, true:9C00-9FFF (32x32 = 1024 bytes)
+    const auto tileDataArea = static_cast<bool>((LCDC & 0b00010000) >> 4) ? 0x8000 : 0x9000; // 8000-97FF : 8800-8FFF (4096 bytes)
+    const auto backgroundTileMapAddr = static_cast<bool>((LCDC & 0b00001000) >> 3) ? 0x9800 : 0x9C00; // 9800-9BFF : 9C00-9FFF (32x32 = 1024 bytes)
     const auto objSize = static_cast<bool>((LCDC & 0b00000100) >> 2); // false:8x8, true8x16
     const auto enableObj = static_cast<bool>((LCDC & 0b00000010) >> 1);
     const auto enableBackgroundAndWindow = static_cast<bool>(LCDC & 0b00000001);
-
-    const unsigned tileData = tileDataArea ? 0x8000 : 0x9000;
-    const unsigned background = backgroundTileMap ? 0x9800 : 0x9C00;
-    const unsigned window = windowTileMap ? 0x9800 : 0x9C00;
     
     // visible lcd area is 160x144 pixels or 20x18 tiles
     // scrollable over an area of 256x256 pixels or 32x32 tiles
     for(int j = 0; j<18; ++j) {
         for(int i=0; i<20; ++i) {
-            const uint16_t addr = backgroundTileMap ? 0x9C00 : 0x9800;
-            const auto tile = bus->read<uint8_t>(addr + i + 32 * j); // 32 width because we are sampling 32x32 tilemap
+            const auto tile = bus->read<uint8_t>(backgroundTileMapAddr + i + 32 * j); // 32 width because we are sampling 32x32 tilemap
             drawTile(frameBuffer, 160, i, j, tile, tileDataArea);
         }
+    }
+    static int line = 0;
+    bus->write<uint8_t>(0xFF44, line++);
+    if (line > 200) {
+        line = 0;
     }
 }

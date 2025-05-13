@@ -8,6 +8,20 @@
 #include <iostream>
 #include <memory>
 
+//#define DEBUG_LOG
+
+#if defined(DEBUG_LOG)
+#define LOG(x) std::cout << std::hex << x << std::endl;
+#define LOGN(x) std::cout << std::hex << x;
+#define LOGD(x) std::cout << std::dec << x << std::endl;
+#define LOGND(x) std::cout << std::dec << x;
+#else
+#define LOG(x)
+#define LOGN(x)
+#define LOGD(x)
+#define LOGND(x)
+#endif
+
 class Bus {
 public:
     Bus();
@@ -23,8 +37,8 @@ public:
 private:
     void readFile(char* buffer, const char* filename);
     void printMap(uint16_t offset, uint16_t lines);
-    void parseHeader();
-    void buildVram();
+    void compareLogo();
+    void initVram();
 
     bool bootRom = true;
     std::unique_ptr<uint8_t[]> m_boot = nullptr;
@@ -50,7 +64,7 @@ template<typename T>
 void Bus::write(uint16_t addr, T value) {
     if(addr < 0x8000)
         return;
-   
+
     const auto & map = m_map;
     if(sizeof(T)==1) {
        	map[addr] = value;

@@ -21,7 +21,6 @@ public:
     void reset(); 
 
     void fetchDecodeExecute();
-    bool getPaused() { return paused; }
 
 private:
     void setFlags(int Z, int N, int H, int C);
@@ -49,12 +48,8 @@ private:
     bool interrupts = false; 
     Bus* bus;
 
-    bool paused = false;
-
     std::array<std::function<void()>, 256> opcodeHandler;
     std::array<std::function<void()>, 256> prefixHandler;
-
-    unsigned long long instructionCounter = 0;
 
     void OP_00();
     void OP_01();
