@@ -205,4 +205,12 @@ void PPU::tick(uint32_t cycles) {
             m_mode = Mode::OAMSCAN;
         }
     }
+
+    // HACK to advance the screen in tetris
+    static int line = 0;
+    bus->write<uint8_t>(0xFF44, line++);
+    if (line > 20000) {
+        line = 0;
+    }
+
 }
