@@ -74,7 +74,7 @@ void Bus::initVram() {
 
 void Bus::start() {
     const auto update = [&](){
-        ppu.tick();
+        ppu.updateVramDisplay();
         screen.update(ppu.getFrameBuffer(), ppu.getTileDataBuffer(), ppu.getTileMapBuffer());
     };
 
@@ -96,8 +96,9 @@ void Bus::start() {
         }
         else {
             LOGND(instructionCounter); LOGND(": ");
-            cpu.fetchDecodeExecute();
+            const auto cycles = cpu.fetchDecodeExecute();
             instructionCounter++;
+            ppu.tick(cycles);
             if (instructionCounter % 100 == 0) {
                 update();
             }

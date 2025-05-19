@@ -20,7 +20,7 @@ void CPULR35902::reset() {
     DE.w = 0;
     HL.w = 0;
     SP.w = 0;
-    PC.w = 0; // TODO PC.w = 0x100;
+    PC.w = 0x100; // TODO PC.w = 0x100;
 }
 
 void CPULR35902::setFlags(int Z, int  N, int  H, int C) {
@@ -62,9 +62,18 @@ bool CPULR35902::getFlag(Flag flag) {
     }
 }
 
-void CPULR35902::fetchDecodeExecute() {
+void CPULR35902::processInterrupts() {
+
+}
+
+uint64_t CPULR35902::fetchDecodeExecute() {
+    const uint64_t Tstart = T;
+
+    if(interrupts) 
+        processInterrupts();
+
     if(halt || stop)
-        return;
+        return 0;
  
     const auto instruction = bus->read<uint8_t>(PC.w);
     PC.w++;
@@ -79,6 +88,8 @@ void CPULR35902::fetchDecodeExecute() {
     else {
         opcodeHandler[instruction]();
     }
+
+    return T - Tstart;
 }
 
 std::string CPULR35902::toHexString(int value) {

@@ -20,13 +20,14 @@ public:
     ~CPULR35902();
     void reset(); 
 
-    void fetchDecodeExecute();
+    uint64_t fetchDecodeExecute();
 
 private:
     void setFlags(int Z, int N, int H, int C);
     bool getFlag(Flag flag);
     std::string toHexString(int value);
     void initOpcodeHandlers();
+    void processInterrupts();
 
     union Register {
         uint16_t w;
@@ -42,7 +43,7 @@ private:
     Register SP;
     Register PC;
 
-    unsigned long long T = 0;
+    uint64_t T = 0;
     bool halt = false;
     bool stop = false; 
     bool interrupts = false; 
