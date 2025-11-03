@@ -5,6 +5,8 @@
 
 class Bus;
 
+using XY = std::pair<uint8_t, uint8_t>;
+
 enum class Mode {
     OAMSCAN = 2,
     DRAW = 3,
@@ -12,27 +14,32 @@ enum class Mode {
     VBLANK = 1
 };
 
+struct Vbuffer {
+    std::vector<uint8_t> data{};
+    uint16_t width{};
+};
+
 class PPU {
 public:
     PPU(Bus* bus);
     void tick(uint32_t cycles);
     void updateVramDisplay();
-    std::vector<uint8_t>& getFrameBuffer() { return frameBuffer; }
-    std::vector<uint8_t>& getTileDataBuffer() { return tileDataBuffer; }
-    std::vector<uint8_t>& getTileMapBuffer() { return tileMapBuffer; }
+    const std::vector<uint8_t>& getFrameBuffer() const { return frameBuffer.data; }
+    const std::vector<uint8_t>& getTileDataBuffer() const { return tileDataBuffer.data; }
+    const std::vector<uint8_t>& getTileMapBuffer() const { return tileMapBuffer.data; }
 
 private:
-    uint8_t colorLookup(const bool msb, const bool lsb);
-    auto drawTile(std::vector<uint8_t>& buffer, int width, const uint8_t x, const uint8_t y, const uint8_t tile, const bool mode);
-    void drawLine();
+    uint8_t colorLookup(bool msb, bool lsb) const;
+    void drawAlignedTile(Vbuffer& buffer, XY tilePos, uint16_t tile, bool unsignedMode = true);
+    void drawLine(XY startPos);
     void drawDots();
     
     void horizontalInterrupt();
     void verticalInterrupt();
 
-    std::vector<uint8_t> frameBuffer;
-    std::vector<uint8_t> tileDataBuffer;
-    std::vector<uint8_t> tileMapBuffer;
+    Vbuffer frameBuffer;
+    Vbuffer tileDataBuffer;
+    Vbuffer tileMapBuffer;
     Bus* bus = nullptr;
 
     uint32_t m_dots;

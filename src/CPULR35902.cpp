@@ -20,7 +20,7 @@ void CPULR35902::reset() {
     DE.w = 0;
     HL.w = 0;
     SP.w = 0;
-    PC.w = 0x100; // TODO PC.w = 0x100;
+    PC.w = 0x0; // TODO PC.w = 0x100;
 }
 
 void CPULR35902::setFlags(int Z, int  N, int  H, int C) {
@@ -54,16 +54,43 @@ void CPULR35902::setFlags(int Z, int  N, int  H, int C) {
 
 bool CPULR35902::getFlag(Flag flag) {
     switch(flag) {
-        case Flag::Z : { return static_cast<bool>(AF.right & 0b10000000); }
-        case Flag::N : { return static_cast<bool>(AF.right & 0b01000000); }
-        case Flag::H : { return static_cast<bool>(AF.right & 0b00100000); }
-        case Flag::C : { return static_cast<bool>(AF.right & 0b00010000); }
+        using enum Flag;
+        case Z : { return static_cast<bool>(AF.right & 0b10000000); }
+        case N : { return static_cast<bool>(AF.right & 0b01000000); }
+        case H : { return static_cast<bool>(AF.right & 0b00100000); }
+        case C : { return static_cast<bool>(AF.right & 0b00010000); }
         default : { throw std::runtime_error("Invalid flag get!"); }
     }
 }
 
 void CPULR35902::processInterrupts() {
+    enum Interrupt {
+        VBlank = 0,
+        LCD,
+        Timer,
+        Serial,
+        Joypad
+    };
 
+    const auto interruptEnable = bus->read<uint8_t>(0xFFFF);
+    const auto interruptFlag = bus->read<uint8_t>(0xFF0F);
+    for (int i = static_cast<int>(Interrupt::VBlank); i <= static_cast<int>(Interrupt::Joypad); ++i)
+    {
+        const auto mask = 1 << i;
+        const auto interrupt = static_cast<Interrupt>(i);
+        if (interruptFlag & interruptEnable & mask)
+        {
+            switch (interrupt) {
+                using enum Interrupt;
+                case VBlank: PC.w = 0x40; break; // TODO - save PC for reti
+                case LCD: PC.w = 0x48; break;
+                case Timer: PC.w = 0x50; break;
+                case Serial: PC.w = 0x58; break;
+                case Joypad: PC.w = 0x60; break;
+                default: { throw std::runtime_error("Invalid interrup requested!"); }
+            }
+        }
+    }
 }
 
 uint64_t CPULR35902::fetchDecodeExecute() {
@@ -1668,7 +1695,9 @@ void CPULR35902::OP_EC() {
     throw std::runtime_error("Illegal instruction!");
 }
 void CPULR35902::OP_ED() {
-    throw std::runtime_error("Illegal instruction!");
+    //throw std::runtime_error("Illegal instruction!");
+    T += 4;
+    LOG("Illegal instruction")
 }
 void CPULR35902::OP_EE() {
     T += 8;

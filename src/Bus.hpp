@@ -40,7 +40,7 @@ private:
     void compareLogo();
     void initVram();
 
-    bool bootRom = false;
+    bool bootRom = true;
     std::unique_ptr<uint8_t[]> m_boot = nullptr;
     std::unique_ptr<uint8_t[]> m_map = nullptr;
     CPULR35902 cpu;

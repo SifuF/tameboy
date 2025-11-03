@@ -10,7 +10,8 @@ Bus::Bus() : m_boot(std::make_unique<uint8_t[]>(0x100)),
              ppu(this) {
     
     readFile((char*)m_boot.get(), "../roms/DMG_ROM.bin");
-    readFile((char*)m_map.get(), "../roms/tetris.bin");
+    //readFile((char*)m_map.get(), "../roms/tetris.bin");
+    readFile((char*)m_map.get(), "../roms/cpu_instrs.gb");
 
     cpu.reset();
     
@@ -25,7 +26,7 @@ Bus::~Bus() {
 
 void Bus::initVram() {
     constexpr size_t tileSize = 16;
-    uint8_t tileX[tileSize] = {
+    constexpr uint8_t tileX[tileSize] = {
         0b10000010, 0b00000000,
         0b01000100, 0b00000000,
         0b00101000, 0b00000000,
@@ -36,7 +37,7 @@ void Bus::initVram() {
         0b00000000, 0b00000000
     };
 
-    uint8_t tileF[tileSize] = {
+    constexpr uint8_t tileF[tileSize] = {
         0b11111110, 0b00000000,
         0b10000000, 0b01111110,
         0b10000000, 0b00000000,
@@ -47,7 +48,7 @@ void Bus::initVram() {
         0b00000000, 0b00000000
     };
 
-    uint8_t tileO[tileSize] = {
+    constexpr uint8_t tileO[tileSize] = {
         0b01111100, 0b01111100,
         0b10000010, 0b10000010,
         0b10000010, 0b10000010,
@@ -98,8 +99,9 @@ void Bus::start() {
             LOGND(instructionCounter); LOGND(": ");
             const auto cycles = cpu.fetchDecodeExecute();
             instructionCounter++;
-            ppu.tick(cycles);
+            
             if (instructionCounter % 100 == 0) {
+                ppu.tick(cycles);
                 update();
             }
         }
