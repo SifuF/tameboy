@@ -31,7 +31,7 @@ public:
 private:
     uint8_t colorLookup(bool msb, bool lsb) const;
     void drawAlignedTile(Vbuffer& buffer, XY tilePos, uint16_t tile, bool unsignedMode = true);
-    void drawLine(XY startPos);
+    void drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, int LC);
     void drawDots();
     
     void horizontalInterrupt();

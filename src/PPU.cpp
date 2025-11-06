@@ -49,21 +49,26 @@ void PPU::drawAlignedTile(Vbuffer& buffer, XY tilePos, uint16_t tile, bool unsig
     }
 };
 
-void PPU::drawLine(XY startPos) {
-    for (int k = 0; k < 10; ++k) {  // TODO - 20 tile slices per row
-        //const auto tileData = bus->read<uint8_t>(backgroundTileMapAddr + j);
-        //constexpr auto bytesPerLine = 20 * 8 * 2; // 8 pixels, 2 bytes per pixel
-        //const auto lsByte = bus->read<uint8_t>(tileData + 2 * j + j * bytesPerLine + 16*m_currentLine);
-        //const auto msByte = bus->read<uint8_t>(tileData + 2 * j + j * bytesPerLine + 16*m_currentLine + 1);
-        for (int i = 0; i < 8; ++i) { // one 8 tile row at a time
-            //const auto lsBit = static_cast<bool>(lsByte & (1 << (7 - i)));
-            //const auto msBit = static_cast<bool>(msByte & (1 << (7 - i)));
-            //const auto color = colorLookup(msBit, lsBit);
+void PPU::drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, int LC) {
+    const auto tileDataArea = static_cast<bool>((LCDC & 0b00010000) >> 4) ? 0x8000 : 0x9000; // 8000-97FF : 8800-8FFF (4096 bytes)
+    const auto backgroundTileMapAddr = static_cast<bool>((LCDC & 0b00001000) >> 3) ? 0x9C00 : 0x9800; // 9800-9BFF : 9C00-9FFF (32x32 = 1024 bytes)
+    for (int tileSlice = 0; tileSlice < 19; ++tileSlice) {  // TODO - 20 tile slices per row    
+        for (int pixel = 0; pixel < 8; ++pixel) { // one 8 tile row at a time
+            const auto xTile = (8 * tileSlice + pixel) / 8;
+            const auto yTile = LC / 8;
+            const auto tileNumber = bus->read<uint8_t>(backgroundTileMapAddr + xTile + 32 * yTile);
 
-            const int index = (i + startPos.first + k * 8) % 160 + startPos.second * frameBuffer.width;
-            frameBuffer.data[4 * index] = 255;
-            frameBuffer.data[4 * index + 1] = 255;
-            frameBuffer.data[4 * index + 2] = 255;
+            const auto lsByte = bus->read<uint8_t>(tileDataArea + 16 * tileNumber + 2 * (LC % 8));
+            const auto msByte = bus->read<uint8_t>(tileDataArea + 16 * tileNumber + 2 * (LC % 8) + 1);
+    
+            const auto lsBit = static_cast<bool>(lsByte & (1 << (7 - pixel)));
+            const auto msBit = static_cast<bool>(msByte & (1 << (7 - pixel)));
+            const auto color = colorLookup(msBit, lsBit);
+
+            const int index = pixel + tileSlice * 8 + LC * frameBuffer.width;
+            frameBuffer.data[4 * index] = color;
+            frameBuffer.data[4 * index + 1] = color;
+            frameBuffer.data[4 * index + 2] = color;
             frameBuffer.data[4 * index + 3] = 255;
         }
     }
@@ -203,9 +208,9 @@ void PPU::tick(uint32_t cycles) {
     */
 
     // screen
-    for (int j = 0; j < 72; ++j) { // TODO - 144
+    for (int j = 0; j < 140; ++j) { // TODO - 144
         //const auto tile = bus->read<uint8_t>(0x9800 + i + 32 * j);
-        drawLine({ 100, (SCY + j) % 144 });
+        drawLine(LCDC, SCX, SCY, j);
     }
     verticalInterrupt();
 

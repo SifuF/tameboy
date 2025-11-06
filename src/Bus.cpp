@@ -66,6 +66,19 @@ void Bus::initVram() {
         std::memcpy(m_map.get() + 0x9000 + i * tileSize, tileO, tileSize); // fill block 2 with O
     }
 
+    // DEBUG
+    std::memcpy(m_map.get() + 0x8000 * tileSize, tileX, tileSize);
+    std::memcpy(m_map.get() + 0x8000 + 1 * tileSize, tileF, tileSize);
+    std::memcpy(m_map.get() + 0x8000 + 2 * tileSize, tileO, tileSize);
+    
+    std::memcpy(m_map.get() + 0x8000 + 3 * tileSize, tileX, tileSize);
+    std::memcpy(m_map.get() + 0x8000 + 4 * tileSize, tileF, tileSize);
+    std::memcpy(m_map.get() + 0x8000 + 5 * tileSize, tileO, tileSize);
+    
+    std::memcpy(m_map.get() + 0x8000 + 6 * tileSize, tileX, tileSize);
+    std::memcpy(m_map.get() + 0x8000 + 7 * tileSize, tileF, tileSize);
+    std::memcpy(m_map.get() + 0x8000 + 8 * tileSize, tileO, tileSize);
+
     // fill background with 0th tile
     std::memset(m_map.get() + 0x9800, 0, 32*32);
 
