@@ -53,7 +53,7 @@ void PPU::drawAlignedTile(Vbuffer& buffer, XY tilePos, uint16_t tile, bool unsig
 void PPU::drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, int LC) {
     const auto tileDataArea = static_cast<bool>((LCDC & 0b00010000) >> 4) ? 0x8000 : 0x9000; // 8000-97FF : 8800-8FFF (4096 bytes)
     const auto backgroundTileMapAddr = static_cast<bool>((LCDC & 0b00001000) >> 3) ? 0x9C00 : 0x9800; // 9800-9BFF : 9C00-9FFF (32x32 = 1024 bytes)
-    for (int tileSlice = 0; tileSlice < 19; ++tileSlice) {  // TODO - 20 tile slices per row    
+    for (int tileSlice = 0; tileSlice < 20; ++tileSlice) {   
         for (int pixel = 0; pixel < 8; ++pixel) { // one 8 tile row at a time
             const auto xTile = ( (SCX + 8 * tileSlice + pixel) % 160 ) / 8;
             const auto yTile = ( (SCY + LC) % 256 ) / 8;
@@ -195,30 +195,16 @@ void PPU::tick(uint32_t cycles) {
     }
     */
 
-    // screen
     static int line = 0;
-
     bus->write<uint8_t>(0xFF44, line);
     if (line < 144) {
         drawLine(LCDC, SCX, SCY, line);
     }
-    
-    
     if (line == 144) {
         verticalInterrupt();
     }
-
     if (line >= 153) {
-        line = 0;
+        line = -1;
     }
-
     line++;
-
-    // HACK to advance the screen in tetris
-    //static int line = 0;
-    //bus->write<uint8_t>(0xFF44, line++);
-    //if (line > 20000) {
-    //    line = 0;
-    //}
-
 }

@@ -114,8 +114,10 @@ void Bus::start() {
             const auto cycles = cpu.fetchDecodeExecute();
             instructionCounter++;
             
-            if (instructionCounter % 500 == 0) {
+            if (instructionCounter % 70 == 0) {
                 ppu.tick(cycles);
+            }
+            if (instructionCounter % 10000 == 0) {
                 update();
             }
         }
