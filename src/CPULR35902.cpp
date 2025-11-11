@@ -1,6 +1,7 @@
 #include "CPULR35902.hpp"
 
 #include "Bus.hpp"
+#include "Utils.hpp"
 
 #include <iostream>
 #include <sstream>
@@ -64,14 +65,6 @@ bool CPULR35902::getFlag(Flag flag) {
 }
 
 void CPULR35902::processInterrupts() {
-    enum Interrupt {
-        VBlank = 0,
-        LCD,
-        Timer,
-        Serial,
-        Joypad
-    };
-
     const auto interruptEnable = bus->read<uint8_t>(0xFFFF);
     const auto interruptFlag = bus->read<uint8_t>(0xFF0F);
     for (int i = static_cast<int>(Interrupt::VBlank); i <= static_cast<int>(Interrupt::Joypad); ++i)

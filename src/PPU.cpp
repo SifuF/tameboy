@@ -1,6 +1,7 @@
 #include "PPU.hpp"
 
 #include "Bus.hpp"
+#include "Utils.hpp"
 
 #include <cstdlib>
 
@@ -54,12 +55,13 @@ void PPU::drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, int LC) {
     const auto backgroundTileMapAddr = static_cast<bool>((LCDC & 0b00001000) >> 3) ? 0x9C00 : 0x9800; // 9800-9BFF : 9C00-9FFF (32x32 = 1024 bytes)
     for (int tileSlice = 0; tileSlice < 19; ++tileSlice) {  // TODO - 20 tile slices per row    
         for (int pixel = 0; pixel < 8; ++pixel) { // one 8 tile row at a time
-            const auto xTile = (8 * tileSlice + pixel) / 8;
-            const auto yTile = LC / 8;
+            const auto xTile = ( (SCX + 8 * tileSlice + pixel) % 160 ) / 8;
+            const auto yTile = ( (SCY + LC) % 256 ) / 8;
             const auto tileNumber = bus->read<uint8_t>(backgroundTileMapAddr + xTile + 32 * yTile);
 
-            const auto lsByte = bus->read<uint8_t>(tileDataArea + 16 * tileNumber + 2 * (LC % 8));
-            const auto msByte = bus->read<uint8_t>(tileDataArea + 16 * tileNumber + 2 * (LC % 8) + 1);
+            const auto lsByteIndex = tileDataArea + 16 * tileNumber + 2 * ((SCY + LC) % 8);
+            const auto lsByte = bus->read<uint8_t>(lsByteIndex);
+            const auto msByte = bus->read<uint8_t>(lsByteIndex + 1);
     
             const auto lsBit = static_cast<bool>(lsByte & (1 << (7 - pixel)));
             const auto msBit = static_cast<bool>(msByte & (1 << (7 - pixel)));
@@ -104,22 +106,8 @@ void PPU::horizontalInterrupt()
 
 void PPU::verticalInterrupt()
 {
-    enum Interrupt {
-        VBlank,
-        LCD,
-        Timer,
-        Serial,
-        Joypad
-    };
-
-    auto flipBit = [this](int bit, bool set = true) {
-        const auto val = bus->read<uint8_t>(0xFF0F);
-        const auto mask = 1 << bit;
-        const auto flip = set ? val | mask : val & (~mask);
-        bus->write<uint8_t>(0xFF0F, flip);
-    };
-
-    flipBit(0);
+    const auto newInterruptFlag = Utils::setBit(bus->read<uint8_t>(0xFF0F), 0);
+    bus->write<uint8_t>(0xFF0F, newInterruptFlag);
     LOG("vSync")
 }
 
@@ -178,7 +166,7 @@ void PPU::tick(uint32_t cycles) {
     const auto enableObj = static_cast<bool>((LCDC & 0b00000010) >> 1);
     const auto enableBackgroundAndWindow = static_cast<bool>(LCDC & 0b00000001);
 
-    const auto SCY = bus->read<uint8_t>(0xFF42);
+    //const auto SCY = 70;// bus->read<uint8_t>(0xFF42);
     const auto SCX = bus->read<uint8_t>(0xFF43);
     
     /*
@@ -207,6 +195,11 @@ void PPU::tick(uint32_t cycles) {
     }
     */
 
+    static int SCY = 100;
+    if (SCY > 0) {
+        SCY--;
+    }
+
     // screen
     for (int j = 0; j < 140; ++j) { // TODO - 144
         //const auto tile = bus->read<uint8_t>(0x9800 + i + 32 * j);
@@ -214,12 +207,12 @@ void PPU::tick(uint32_t cycles) {
     }
     verticalInterrupt();
 
-    /*
+
     // HACK to advance the screen in tetris
-    static int line = 0;
-    bus->write<uint8_t>(0xFF44, line++);
-    if (line > 20000) {
-        line = 0;
-    }
-    */
+    //static int line = 0;
+    //bus->write<uint8_t>(0xFF44, line++);
+    //if (line > 20000) {
+    //    line = 0;
+    //}
+
 }

@@ -2,6 +2,8 @@
 
 #include <SFML/Graphics.hpp>
 
+#include <optional>
+
 class Screen {
 public:
     Screen();
@@ -9,22 +11,22 @@ public:
 
 private:
     sf::RenderWindow mainWindow;
-    sf::Texture mainTexture;
-    sf::Sprite mainSprite;
+    std::optional<sf::Texture> mainTexture;
+    std::optional<sf::Sprite> mainSprite;
     static constexpr int mainWidth = 160; // 20 * 8
     static constexpr int mainHeight = 144; // 18 * 8
     int mainScale = 5;
     
     sf::RenderWindow tileDataWindow;
-    sf::Texture tileDataTexture;
-    sf::Sprite tileDataSprite;
+    std::optional<sf::Texture> tileDataTexture;
+    std::optional<sf::Sprite> tileDataSprite;
     static constexpr int tileDataWidth = 128; // 16 * 8
     static constexpr int tileDataHeight = 192; // 24 * 8
     int tileDataScale = 5;
 
     sf::RenderWindow tileMapWindow;
-    sf::Texture tileMapTexture;
-    sf::Sprite tileMapSprite;
+    std::optional<sf::Texture> tileMapTexture;
+    std::optional<sf::Sprite> tileMapSprite;
     static constexpr int tileMapWidth = 256; // 32 * 8
     static constexpr int tileMapHeight = 512; // 2 * 32 * 8
     int tileMapScale = 2;
