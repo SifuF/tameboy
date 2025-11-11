@@ -67,7 +67,7 @@ void Bus::initVram() {
     }
 
     // DEBUG
-    std::memcpy(m_map.get() + 0x8000 * tileSize, tileX, tileSize);
+    std::memcpy(m_map.get() + 0x8000, tileX, tileSize);
     std::memcpy(m_map.get() + 0x8000 + 1 * tileSize, tileF, tileSize);
     std::memcpy(m_map.get() + 0x8000 + 2 * tileSize, tileO, tileSize);
     
@@ -93,10 +93,11 @@ void Bus::start() {
     };
 
     unsigned long long instructionCounter = 0;
-    std::optional<unsigned long long> instructionTarget{};
+    unsigned long long instructionTarget = 0;
 
     while (true) {
-        if (instructionTarget == instructionCounter) {
+        if (false) {
+        //if (instructionTarget == instructionCounter) {
             try {
                 update();
                 std::cout << "Enter no. of instructions to execute: ";
@@ -113,7 +114,7 @@ void Bus::start() {
             const auto cycles = cpu.fetchDecodeExecute();
             instructionCounter++;
             
-            if (instructionCounter % 100 == 0) {
+            if (instructionCounter % 500 == 0) {
                 ppu.tick(cycles);
                 update();
             }

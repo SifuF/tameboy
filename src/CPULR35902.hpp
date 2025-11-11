@@ -46,7 +46,7 @@ private:
     uint64_t T = 0;
     bool halt = false;
     bool stop = false; 
-    bool interrupts = false; 
+    bool interruptMasterEnable = false;
     Bus* bus;
 
     std::array<std::function<void()>, 256> opcodeHandler;

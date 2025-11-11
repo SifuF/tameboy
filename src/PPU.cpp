@@ -166,16 +166,16 @@ void PPU::tick(uint32_t cycles) {
     const auto enableObj = static_cast<bool>((LCDC & 0b00000010) >> 1);
     const auto enableBackgroundAndWindow = static_cast<bool>(LCDC & 0b00000001);
 
-    //const auto SCY = 70;// bus->read<uint8_t>(0xFF42);
+    const auto SCY = bus->read<uint8_t>(0xFF42);
     const auto SCX = bus->read<uint8_t>(0xFF43);
-    
+
     /*
     if (m_mode == Mode::OAMSCAN && m_dots >= oamLength) {
         m_mode = Mode::DRAW;
     }
     else if (m_mode == Mode::DRAW && m_dots >= oamLength + drawLength) {
         horizontalInterrupt();
-        drawLine(); // TODO - drawDots(); 
+        drawLine(); // TODO - drawDots();
         m_mode = Mode::HBLANK;
     }
     else if (m_dots >= lineLength) {
@@ -195,18 +195,24 @@ void PPU::tick(uint32_t cycles) {
     }
     */
 
-    static int SCY = 100;
-    if (SCY > 0) {
-        SCY--;
-    }
-
     // screen
-    for (int j = 0; j < 140; ++j) { // TODO - 144
-        //const auto tile = bus->read<uint8_t>(0x9800 + i + 32 * j);
-        drawLine(LCDC, SCX, SCY, j);
-    }
-    verticalInterrupt();
+    static int line = 0;
 
+    bus->write<uint8_t>(0xFF44, line);
+    if (line < 144) {
+        drawLine(LCDC, SCX, SCY, line);
+    }
+    
+    
+    if (line == 144) {
+        verticalInterrupt();
+    }
+
+    if (line >= 153) {
+        line = 0;
+    }
+
+    line++;
 
     // HACK to advance the screen in tetris
     //static int line = 0;

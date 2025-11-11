@@ -73,13 +73,43 @@ void CPULR35902::processInterrupts() {
         const auto interrupt = static_cast<Interrupt>(i);
         if (interruptFlag & interruptEnable & mask)
         {
-            switch (interrupt) {
+            interruptMasterEnable = false;
+            
+            auto jumpToHandler = [&](uint16_t addr) {
+                T += 20;
+                SP.w -= 2;
+                bus->write<uint16_t>(SP.w, PC.w);
+                PC.w = addr;
+                LOG("INT " + toHexString(addr));
+            };
+            
+            switch (interrupt) { 
                 using enum Interrupt;
-                case VBlank: PC.w = 0x40; break; // TODO - save PC for reti
-                case LCD: PC.w = 0x48; break;
-                case Timer: PC.w = 0x50; break;
-                case Serial: PC.w = 0x58; break;
-                case Joypad: PC.w = 0x60; break;
+                case VBlank: {
+                    Utils::clearBit(interruptFlag, 0);
+                    jumpToHandler(0x40);
+                    break;
+                }
+                case LCD: {
+                    Utils::clearBit(interruptFlag, 1);
+                    jumpToHandler(0x48);
+                    break;
+                }
+                case Timer: {
+                    Utils::clearBit(interruptFlag, 2);
+                    jumpToHandler(0x50);
+                    break;
+                }
+                case Serial: {
+                    Utils::clearBit(interruptFlag, 3);
+                    jumpToHandler(0x58);
+                    break;
+                }
+                case Joypad: {
+                    Utils::clearBit(interruptFlag, 4);
+                    jumpToHandler(0x60);
+                    break;
+                }
                 default: { throw std::runtime_error("Invalid interrup requested!"); }
             }
         }
@@ -89,7 +119,7 @@ void CPULR35902::processInterrupts() {
 uint64_t CPULR35902::fetchDecodeExecute() {
     const uint64_t Tstart = T;
 
-    if(interrupts) 
+    if(interruptMasterEnable)
         processInterrupts();
 
     if(halt || stop)
@@ -1561,7 +1591,7 @@ void CPULR35902::OP_D9() {
     T += 16;
     PC.w = bus->read<uint16_t>(SP.w);
     SP.w += 2;
-    interrupts = true;
+    interruptMasterEnable = true;
     LOG("RETI") 
 }
 void CPULR35902::OP_DA() {
@@ -1725,7 +1755,7 @@ void CPULR35902::OP_F2() {
     LOG("LD A, (SFF00+C)")
 }
 void CPULR35902::OP_F3() {
-    interrupts = false;
+    interruptMasterEnable = false;
     LOG("DI")
 }
 void CPULR35902::OP_F4() {
@@ -1775,7 +1805,7 @@ void CPULR35902::OP_FA() {
     LOG("LD A, ($" + toHexString(addr) + ")")
 }
 void CPULR35902::OP_FB() {
-    interrupts = true;
+    interruptMasterEnable = true;
     LOG("EI")
 }
 void CPULR35902::OP_FC() {
