@@ -10,12 +10,13 @@ Bus::Bus() : m_boot(std::make_unique<uint8_t[]>(0x100)),
              ppu(this) {
     
     readFile((char*)m_boot.get(), "../roms/DMG_ROM.bin");
-    //readFile((char*)m_map.get(), "../roms/tetris.bin");
-    readFile((char*)m_map.get(), "../roms/cpu_instrs.gb");
+    readFile((char*)m_map.get(), "../roms/tetris.bin");
+    //readFile((char*)m_map.get(), "../roms/cpu_instrs.gb");
 
     cpu.reset();
-    
+#ifdef DEBUG_LOG
     printMap(0x0, 4);
+#endif
     compareLogo();
     initVram();
 }
@@ -93,34 +94,18 @@ void Bus::start() {
     };
 
     unsigned long long instructionCounter = 0;
-    unsigned long long instructionTarget = 0;
 
     while (true) {
-        if (false) {
-        //if (instructionTarget == instructionCounter) {
-            try {
-                update();
-                std::cout << "Enter no. of instructions to execute: ";
-                std::string str{};
-                std::getline(std::cin, str);
-                instructionTarget = instructionCounter + std::stoi(str);
-            }
-            catch (...) {
-                throw std::runtime_error("invalid no. of instructions!");
-            }
+        const auto cycles = cpu.fetchDecodeExecute();
+
+        if (instructionCounter % 70 == 0) {
+            ppu.tick(cycles);
         }
-        else {
-            LOGND(instructionCounter); LOGND(": ");
-            const auto cycles = cpu.fetchDecodeExecute();
-            instructionCounter++;
-            
-            if (instructionCounter % 70 == 0) {
-                ppu.tick(cycles);
-            }
-            if (instructionCounter % 10000 == 0) {
-                update();
-            }
+        if (instructionCounter % 10000 == 0) {
+            update();
         }
+
+        instructionCounter++;
     }
 }
 

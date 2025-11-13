@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Utils.hpp"
+
 #include <array>
 #include <cstdint>
 #include <functional>
@@ -21,6 +23,8 @@ public:
     void reset(); 
 
     uint64_t fetchDecodeExecute();
+
+    void printState();
 
 private:
     void setFlags(int Z, int N, int H, int C);
@@ -51,6 +55,18 @@ private:
 
     std::array<std::function<void()>, 256> opcodeHandler;
     std::array<std::function<void()>, 256> prefixHandler;
+
+    bool m_debug = false;
+
+    void logInstruction(std::string str, bool newLine = true) {
+        std::cout << std::hex << str;
+        if (newLine) { 
+            std::cout << '\n';
+        }
+        else {
+            std::cout << ' ';
+        }
+    }
 
     void OP_00();
     void OP_01();
