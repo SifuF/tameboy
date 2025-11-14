@@ -29,7 +29,7 @@ public:
     const std::vector<uint8_t>& getTileMapBuffer() const { return tileMapBuffer.data; }
 
 private:
-    uint8_t colorLookup(bool msb, bool lsb) const;
+    std::array<uint8_t, 3> colorLookup(bool msb, bool lsb) const;
     void drawAlignedTile(Vbuffer& buffer, XY tilePos, uint16_t tile, bool unsignedMode = true);
     void drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, int LC);
     void drawDots();

@@ -17,14 +17,21 @@ PPU::PPU(Bus* bus) : bus(bus), m_dots(0), m_mode(Mode::OAMSCAN), m_currentLine(0
     tileMapBuffer.width = 256;
 }
 
-uint8_t PPU::colorLookup(bool msb, bool lsb) const
+std::array<uint8_t, 3> PPU::colorLookup(bool msb, bool lsb) const
 {
     switch ((msb << 1) | lsb)
     {
-        case 0: return 0;
-        case 1: return 80;
-        case 2: return 170;
-        default: return 255;
+#ifdef GREEN
+        case 0: return { 0x0F, 0x38, 0x0F };
+        case 1: return { 0x30, 0x62, 0x30 };
+        case 2: return { 0x8B, 0xAC, 0x0F };
+        default: return { 0x9B, 0xBC, 0x0F };
+#else
+        case 0: return { 255, 255, 255 };
+        case 1: return { 170, 170, 170 };
+        case 2: return { 80, 80, 80 };
+        default: return { 0, 0, 0 };
+#endif
     }
 };
 
@@ -39,12 +46,11 @@ void PPU::drawAlignedTile(Vbuffer& buffer, XY tilePos, uint16_t tile, bool unsig
         for (int i = 0; i < 8; ++i) { // one 8 tile row at a time
             const auto lsBit = static_cast<bool>(lsByte & (1 << (7 - i)));
             const auto msBit = static_cast<bool>(msByte & (1 << (7 - i)));
-            const auto color = colorLookup(msBit, lsBit);
-            
+            const auto [r, g, b] = colorLookup(msBit, lsBit);
             const int index = screenStart + i + j * buffer.width;
-            buffer.data[4 * index] = color;
-            buffer.data[4 * index + 1] = color;
-            buffer.data[4 * index + 2] = color;
+            buffer.data[4 * index] = r;
+            buffer.data[4 * index + 1] = g;
+            buffer.data[4 * index + 2] = b;
             buffer.data[4 * index + 3] = 255;
         }
     }
@@ -65,12 +71,12 @@ void PPU::drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, int LC) {
     
             const auto lsBit = static_cast<bool>(lsByte & (1 << (7 - pixel)));
             const auto msBit = static_cast<bool>(msByte & (1 << (7 - pixel)));
-            const auto color = colorLookup(msBit, lsBit);
+            const auto [r, g, b] = colorLookup(msBit, lsBit);
 
             const int index = pixel + tileSlice * 8 + LC * frameBuffer.width;
-            frameBuffer.data[4 * index] = color;
-            frameBuffer.data[4 * index + 1] = color;
-            frameBuffer.data[4 * index + 2] = color;
+            frameBuffer.data[4 * index] = r;
+            frameBuffer.data[4 * index + 1] = g;
+            frameBuffer.data[4 * index + 2] = b;
             frameBuffer.data[4 * index + 3] = 255;
         }
     }
