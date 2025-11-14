@@ -121,27 +121,27 @@ void CPULR35902::processInterrupts() {
             switch (interrupt) { 
                 using enum Interrupt;
                 case VBlank: {
-                    Utils::clearBit(interruptFlag, 0);
+                    bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, 0));
                     jumpToHandler(0x40);
                     break;
                 }
                 case LCD: {
-                    Utils::clearBit(interruptFlag, 1);
+                    bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, 1));
                     jumpToHandler(0x48);
                     break;
                 }
                 case Timer: {
-                    Utils::clearBit(interruptFlag, 2);
+                    bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, 2));
                     jumpToHandler(0x50);
                     break;
                 }
                 case Serial: {
-                    Utils::clearBit(interruptFlag, 3);
+                    bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, 3));
                     jumpToHandler(0x58);
                     break;
                 }
                 case Joypad: {
-                    Utils::clearBit(interruptFlag, 4);
+                    bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, 4));
                     jumpToHandler(0x60);
                     break;
                 }
@@ -156,23 +156,30 @@ uint64_t CPULR35902::fetchDecodeExecute() {
 
     static unsigned long long instructionCounter = 0;
     static unsigned long long instructionTarget = 100000000;
+    static bool canStep = true;
 
-    if (PC.w == 0x100) {
-        printState();
-        instructionTarget = instructionCounter;
+    if (PC.w == 0x2bb) {
+        // instructionTarget = instructionCounter;
     }
 
-    if (instructionTarget == instructionCounter) {
+    if (canStep && (instructionTarget == instructionCounter)) {
         m_debug = true;
-        std::cout << ">>> ";
+        std::cout << "Enter no. of instructions to run, Enter = step, s = dump CPU state, c = continue >>> ";
         std::string str{};
         try {
             std::getline(std::cin, str);
-            if (str == "") {
-                instructionTarget = instructionCounter + 1;
+            instructionTarget = instructionCounter + 1;
+            if (str == "c") {
+                canStep = false;
+            }
+            else if (str == "s") {
+                printState();
+            }
+            else if (str == "") {
+
             }
             else {
-                instructionTarget = instructionCounter + std::stoi(str);
+                instructionTarget += std::stoi(str);
             }
         }
         catch (...) {
@@ -213,9 +220,6 @@ uint64_t CPULR35902::fetchDecodeExecute() {
     }
 
     instructionCounter++;
-
-    if (m_debug)
-        printState();
 
     return T - Tstart;
 }
