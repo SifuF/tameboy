@@ -16,6 +16,8 @@ Bus::Bus() : m_boot(std::make_unique<uint8_t[]>(0x100)),
     //readFile((char*)m_map.get(), "../roms/tennis.bin");
     //readFile((char*)m_map.get(), "../roms/Alleyway.bin");
     readFile((char*)m_map.get(), "../roms/dr.bin");
+    //readFile((char*)m_map.get(), "../roms/spot.gb");
+    //readFile((char*)m_map.get(), "../roms/taz.gb");
 
     cpu.reset();
 #ifdef DEBUG_LOG
