@@ -23,10 +23,10 @@ std::array<uint8_t, 3> PPU::colorLookup(bool msb, bool lsb) const
     switch ((msb << 1) | lsb)
     {
 #ifdef GREEN
-        case 0: return { 0x0F, 0x38, 0x0F };
-        case 1: return { 0x30, 0x62, 0x30 };
-        case 2: return { 0x8B, 0xAC, 0x0F };
-        default: return { 0x9B, 0xBC, 0x0F };
+        case 0: return { 0x9B, 0xBC, 0x0F };
+        case 1: return { 0x8B, 0xAC, 0x0F };
+        case 2: return { 0x30, 0x62, 0x30 };
+        default: return { 0x0F, 0x38, 0x0F };
 #else
         case 0: return { 255, 255, 255 };
         case 1: return { 170, 170, 170 };
