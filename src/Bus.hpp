@@ -54,7 +54,7 @@ template<typename T>
 T Bus::read(uint16_t addr) {
     auto & map = (bootRom && (addr < 0x100)) ? m_boot : m_map;   
    
-    if(sizeof(T)==1) { 
+    if constexpr (sizeof(T)==1) {
         return map[addr];
     }
     else {
@@ -75,7 +75,7 @@ void Bus::write(uint16_t addr, T value) {
     if (addr == 0xFF50)
         bootRom = false;
 
-    if(sizeof(T)==1) {
+    if constexpr (sizeof(T)==1) {
        	m_map[addr] = value;
     }
     else {

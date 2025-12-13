@@ -1233,7 +1233,7 @@ void CPULR35902::OP_9E() {
 void CPULR35902::OP_9F() {
     T += 4;
     const bool half = getFlag(Flag::C);
-    AF.left = -getFlag(Flag::C);
+    AF.left -= static_cast<uint8_t>(getFlag(Flag::C));
     setFlags((AF.left == 0), 1, half, -1);
     if (m_debug) logInstruction("SBC A, A");
 }
@@ -2030,124 +2030,123 @@ void CPULR35902::PR_0F() {
 void CPULR35902::PR_10() {
     T += 8;
     const auto msb = (BC.left & 0b10000000) >> 7;
-    BC.left = (BC.left << 1) | getFlag(Flag::C);
+    BC.left = (BC.left << 1) | static_cast<uint8_t>(getFlag(Flag::C));
     setFlags((BC.left == 0), 0, 0, msb);
-    if (m_debug) logInstruction("RLC B");
+    if (m_debug) logInstruction("RL B");
 }
 void CPULR35902::PR_11() {
     T += 8;
     const auto msb = (BC.right & 0b10000000) >> 7;
-    BC.right = (BC.right << 1) | getFlag(Flag::C);
+    BC.right = (BC.right << 1) | static_cast<uint8_t>(getFlag(Flag::C));
     setFlags((BC.right == 0), 0, 0, msb);
-    if (m_debug) logInstruction("RLC C");
+    if (m_debug) logInstruction("RL C");
 }
 void CPULR35902::PR_12() {
     T += 8;
     const auto msb = (DE.left & 0b10000000) >> 7;
-    DE.left = (DE.left << 1) | getFlag(Flag::C);
+    DE.left = (DE.left << 1) | static_cast<uint8_t>(getFlag(Flag::C));
     setFlags((DE.left == 0), 0, 0, msb);
-    if (m_debug) logInstruction("RLC D");
+    if (m_debug) logInstruction("RL D");
 }
 void CPULR35902::PR_13() {
     T += 8;
     const auto msb = (DE.right & 0b10000000) >> 7;
-    DE.right = (DE.right << 1) | getFlag(Flag::C);
+    DE.right = (DE.right << 1) | static_cast<uint8_t>(getFlag(Flag::C));
     setFlags((DE.right == 0), 0, 0, msb);
-    if (m_debug) logInstruction("RLC E");
+    if (m_debug) logInstruction("RL E");
 }
 void CPULR35902::PR_14() {
     T += 8;
     const auto msb = (HL.left & 0b10000000) >> 7;
-    HL.left = (HL.left << 1) | getFlag(Flag::C);
+    HL.left = (HL.left << 1) | static_cast<uint8_t>(getFlag(Flag::C));
     setFlags((HL.left == 0), 0, 0, msb);
-    if (m_debug) logInstruction("RLC H");
+    if (m_debug) logInstruction("RL H");
 }
 void CPULR35902::PR_15() {
     T += 8;
     const auto msb = (HL.right & 0b10000000) >> 7;
-    HL.right = (HL.right << 1) | getFlag(Flag::C);
+    HL.right = (HL.right << 1) | static_cast<uint8_t>(getFlag(Flag::C));
     setFlags((HL.right == 0), 0, 0, msb);
-    if (m_debug) logInstruction("RLC L");
+    if (m_debug) logInstruction("RL L");
 }
 void CPULR35902::PR_16() {
     T += 16;
     auto value = bus->read<uint8_t>(HL.w);
     const auto msb = (value & 0b10000000) >> 7;
-    value = (value << 1) | getFlag(Flag::C);
+    value = (value << 1) | static_cast<uint8_t>(getFlag(Flag::C));
     setFlags((value == 0), 0, 0, msb);
     bus->write<uint8_t>(HL.w, value);
-    if (m_debug) logInstruction("RLC (HL)");
+    if (m_debug) logInstruction("RL (HL)");
 }
 void CPULR35902::PR_17() {
     T += 8;
     const auto msb = (AF.left & 0b10000000) >> 7;
-    AF.left = (AF.left << 1) | getFlag(Flag::C);
+    AF.left = (AF.left << 1) | static_cast<uint8_t>(getFlag(Flag::C));
     setFlags((AF.left == 0), 0, 0, msb);
-    if (m_debug) logInstruction("RLC A");
+    if (m_debug) logInstruction("RL A");
 }
 void CPULR35902::PR_18() {
     T += 8;
     const auto lsb = (BC.left & 0b00000001);
-    BC.left = (BC.left >> 1) | (getFlag(Flag::C) << 7);
+    BC.left = (BC.left >> 1) | (static_cast<uint8_t>(getFlag(Flag::C)) << 7);
     setFlags((BC.left == 0), 0, 0, lsb);
-    if (m_debug) logInstruction("RRC B");
+    if (m_debug) logInstruction("RR B");
 }
 void CPULR35902::PR_19() {
     T += 8;
     const auto lsb = (BC.right & 0b00000001);
-    BC.right = (BC.right >> 1) | (getFlag(Flag::C) << 7);
+    BC.right = (BC.right >> 1) | (static_cast<uint8_t>(getFlag(Flag::C)) << 7);
     setFlags((BC.right == 0), 0, 0, lsb);
-    if (m_debug) logInstruction("RRC C");
+    if (m_debug) logInstruction("RR C");
 }
 void CPULR35902::PR_1A() {
     T += 8;
     const auto lsb = (DE.left & 0b00000001);
-    DE.left = (DE.left >> 1) | (getFlag(Flag::C) << 7);
+    DE.left = (DE.left >> 1) | (static_cast<uint8_t>(getFlag(Flag::C)) << 7);
     setFlags((DE.left == 0), 0, 0, lsb);
-    if (m_debug) logInstruction("RRC D");
+    if (m_debug) logInstruction("RR D");
 }
 void CPULR35902::PR_1B() {
     T += 8;
     const auto lsb = (DE.right & 0b00000001);
-    DE.right = (DE.right >> 1) | (getFlag(Flag::C) << 7);
+    DE.right = (DE.right >> 1) | (static_cast<uint8_t>(getFlag(Flag::C)) << 7);
     setFlags((DE.right == 0), 0, 0, lsb);
-    if (m_debug) logInstruction("RRC E");
+    if (m_debug) logInstruction("RR E");
 }
 void CPULR35902::PR_1C() {
     T += 8;
     const auto lsb = (HL.left & 0b00000001);
-    HL.left = (HL.left >> 1) | (getFlag(Flag::C) << 7);
+    HL.left = (HL.left >> 1) | (static_cast<uint8_t>(getFlag(Flag::C)) << 7);
     setFlags((HL.left == 0), 0, 0, lsb);
-    if (m_debug) logInstruction("RRC H");
+    if (m_debug) logInstruction("RR H");
 }
 void CPULR35902::PR_1D() {
     T += 8;
     const auto lsb = (HL.right & 0b00000001);
-    HL.right = (HL.right >> 1) | (getFlag(Flag::C) << 7);
+    HL.right = (HL.right >> 1) | (static_cast<uint8_t>(getFlag(Flag::C)) << 7);
     setFlags((HL.right == 0), 0, 0, lsb);
-    if (m_debug) logInstruction("RRC L");
+    if (m_debug) logInstruction("RR L");
 }
 void CPULR35902::PR_1E() {
     T += 16;
     auto value = bus->read<uint8_t>(HL.w);
     const auto lsb = (value & 0b00000001);
-    value = (value >> 1) | (getFlag(Flag::C) << 7);
+    value = (value >> 1) | (static_cast<uint8_t>(getFlag(Flag::C)) << 7);
     setFlags((value == 0), 0, 0, lsb);
     bus->write<uint8_t>(HL.w, value);
-    if (m_debug) logInstruction("RRC (HL)");
+    if (m_debug) logInstruction("RR (HL)");
 }
 void CPULR35902::PR_1F() {
     T += 8;
     const auto lsb = (AF.left & 0b00000001);
-    AF.left = (AF.left >> 1) | (getFlag(Flag::C) << 7);
+    AF.left = (AF.left >> 1) | (static_cast<uint8_t>(getFlag(Flag::C)) << 7);
     setFlags((AF.left == 0), 0, 0, lsb);
-    if (m_debug) logInstruction("RRC A");
+    if (m_debug) logInstruction("RR A");
 }
 void CPULR35902::PR_20() {
     T += 8;
     const auto msb = BC.left & 0b10000000;
     BC.left <<= 1;
-    BC.left | msb;
     setFlags((BC.left == 0), 0, 0, msb);
     if (m_debug) logInstruction("SLA B");
 }
@@ -2155,7 +2154,6 @@ void CPULR35902::PR_21() {
     T += 8;
     const auto msb = BC.right & 0b10000000;
     BC.right <<= 1;
-    BC.right | msb;
     setFlags((BC.right == 0), 0, 0, msb);
     if (m_debug) logInstruction("SLA C");
 }
@@ -2163,7 +2161,6 @@ void CPULR35902::PR_22() {
     T += 8;
     const auto msb = DE.left & 0b10000000;
     DE.left <<= 1;
-    DE.left | msb;
     setFlags((DE.left == 0), 0, 0, msb);
     if (m_debug) logInstruction("SLA D");
 }
@@ -2171,7 +2168,6 @@ void CPULR35902::PR_23() {
     T += 8;
     const auto msb = DE.right & 0b10000000;
     DE.right <<= 1;
-    DE.right | msb;
     setFlags((DE.right == 0), 0, 0, msb);
     if (m_debug) logInstruction("SLA E");
 }
@@ -2179,7 +2175,6 @@ void CPULR35902::PR_24() {
     T += 8;
     const auto msb = HL.left & 0b10000000;
     HL.left <<= 1;
-    HL.left | msb;
     setFlags((HL.left == 0), 0, 0, msb);
     if (m_debug) logInstruction("SLA H");
 }
@@ -2187,7 +2182,6 @@ void CPULR35902::PR_25() {
     T += 8;
     const auto msb = HL.right & 0b10000000;
     HL.right <<= 1;
-    HL.right | msb;
     setFlags((HL.right == 0), 0, 0, msb);
     if (m_debug) logInstruction("SLA L");
 }
@@ -2196,7 +2190,6 @@ void CPULR35902::PR_26() {
     auto value = bus->read<uint8_t>(HL.w);
     const auto msb = value & 0b10000000;
     value <<= 1;
-    value | msb;
     setFlags((value == 0), 0, 0, msb);
     bus->write<uint8_t>(HL.w, value);
     if (m_debug) logInstruction("SLA (HL)");
@@ -2205,7 +2198,6 @@ void CPULR35902::PR_27() {
     T += 8;
     const auto msb = AF.left & 0b10000000;
     AF.left <<= 1;
-    AF.left | msb;
     setFlags((AF.left == 0), 0, 0, msb);
     if (m_debug) logInstruction("SLA A");
 }
@@ -2214,7 +2206,6 @@ void CPULR35902::PR_28() {
     const auto msb = BC.left & 0b10000000;
     const auto lsb = BC.left & 0b00000001;
     BC.left >>= 1;
-    BC.left |= msb;
     setFlags((BC.left == 0), 0, 0, lsb);
     if (m_debug) logInstruction("SRA B");
 }
@@ -2223,7 +2214,6 @@ void CPULR35902::PR_29() {
     const auto msb = BC.left & 0b10000000;
     const auto lsb = BC.right & 0b00000001;
     BC.right >>= 1;
-    BC.right | msb;
     setFlags((BC.right == 0), 0, 0, lsb);
     if (m_debug) logInstruction("SRA C");
 }
@@ -2232,7 +2222,6 @@ void CPULR35902::PR_2A() {
     const auto msb = BC.left & 0b10000000;
     const auto lsb = DE.left & 0b00000001;
     DE.left >>= 1;
-    DE.left | msb;
     setFlags((DE.left == 0), 0, 0, lsb);
     if (m_debug) logInstruction("SRA D");
 }
@@ -2241,7 +2230,6 @@ void CPULR35902::PR_2B() {
     const auto msb = BC.left & 0b10000000;
     const auto lsb = DE.right & 0b00000001;
     DE.right >>= 1;
-    DE.right | msb;
     setFlags((DE.right == 0), 0, 0, lsb);
     if (m_debug) logInstruction("SRA E");
 }
@@ -2250,7 +2238,6 @@ void CPULR35902::PR_2C() {
     const auto msb = BC.left & 0b10000000;
     const auto lsb = HL.left & 0b00000001;
     HL.left >>= 1;
-    HL.left | msb;
     setFlags((HL.left == 0), 0, 0, lsb);
     if (m_debug) logInstruction("SRA H");
 }
@@ -2259,7 +2246,6 @@ void CPULR35902::PR_2D() {
     const auto msb = BC.left & 0b10000000;
     const auto lsb = HL.right & 0b00000001;
     HL.right >>= 1;
-    HL.right | msb;
     setFlags((HL.right == 0), 0, 0, lsb);
     if (m_debug) logInstruction("SRA L");
 }
@@ -2269,7 +2255,6 @@ void CPULR35902::PR_2E() {
     const auto msb = BC.left & 0b10000000;
     const auto lsb = value & 0b00000001;
     value >>= 1;
-    value | msb;
     setFlags((value == 0), 0, 0, lsb);
     bus->write<uint8_t>(HL.w, value);
     if (m_debug) logInstruction("SRA (HL)");
@@ -2279,7 +2264,6 @@ void CPULR35902::PR_2F() {
     const auto msb = BC.left & 0b10000000;
     const auto lsb = AF.left & 0b00000001;
     AF.left >>= 1;
-    AF.left | msb;
     setFlags((AF.left == 0), 0, 0, lsb);
     if (m_debug) logInstruction("SRA A");
 }

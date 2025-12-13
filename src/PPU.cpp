@@ -20,7 +20,7 @@ PPU::PPU(Bus* bus) : bus(bus), m_dots(0), m_mode(Mode::OAMSCAN), m_currentLine(0
 std::array<uint8_t, 3> PPU::colorLookup(bool msb, bool lsb) const
 {
 #define GREEN
-    switch ((msb << 1) | lsb)
+    switch ((static_cast<uint8_t>(msb) << 1) | static_cast<uint8_t>(lsb))
     {
 #ifdef GREEN
         case 0: return { 0x9B, 0xBC, 0x0F };
