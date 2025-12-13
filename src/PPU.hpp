@@ -23,7 +23,7 @@ class PPU {
 public:
     PPU(Bus* bus);
     void tick(uint32_t cycles);
-    void updateVramDisplay();
+    void updateDebugVramDisplays();
     const std::vector<uint8_t>& getFrameBuffer() const { return frameBuffer.data; }
     const std::vector<uint8_t>& getTileDataBuffer() const { return tileDataBuffer.data; }
     const std::vector<uint8_t>& getTileMapBuffer() const { return tileMapBuffer.data; }
@@ -34,7 +34,6 @@ private:
     void drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, int LC);
     void drawDots();
     
-    void horizontalInterrupt();
     void verticalInterrupt();
 
     Vbuffer frameBuffer;

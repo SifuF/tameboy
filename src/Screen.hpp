@@ -7,7 +7,8 @@
 class Screen {
 public:
     Screen();
-    void update(const std::vector<uint8_t>& frameBuffer, const std::vector<uint8_t>& tileDataBuffer, const std::vector<uint8_t>& tileMapBuffer);
+    void update(const std::vector<uint8_t>& frameBuffer);
+    void updateDebug(const std::vector<uint8_t>& tileDataBuffer, const std::vector<uint8_t>& tileMapBuffer);
 
 private:
     sf::RenderWindow mainWindow;

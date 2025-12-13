@@ -22,7 +22,7 @@ Screen::Screen() {
     tileMapWindow.setPosition(windowPosition + sf::Vector2i{mainScale * mainWidth + tileDataScale * tileDataWidth + 2 * delta, 0});
 }
 
-void Screen::update(const std::vector<uint8_t>& frameBuffer, const std::vector<uint8_t>& tileDataBuffer, const std::vector<uint8_t>& tileMapBuffer) {
+void Screen::update(const std::vector<uint8_t>& frameBuffer) {
     if(!mainWindow.isOpen()) {
         running = false;
     }
@@ -34,6 +34,14 @@ void Screen::update(const std::vector<uint8_t>& frameBuffer, const std::vector<u
         }
     }
 
+    mainTexture->update(frameBuffer.data());
+    mainSprite.emplace(mainTexture.value());
+    mainWindow.clear();
+    mainWindow.draw(mainSprite.value());
+    mainWindow.display();
+}
+
+void Screen::updateDebug(const std::vector<uint8_t>& tileDataBuffer, const std::vector<uint8_t>& tileMapBuffer) {
     while (const std::optional event = tileDataWindow.pollEvent()) {
         if (event->is<sf::Event::Closed>() || (event->is<sf::Event::KeyPressed>() &&
             event->getIf<sf::Event::KeyPressed>()->code == sf::Keyboard::Key::Escape)) {
@@ -48,12 +56,6 @@ void Screen::update(const std::vector<uint8_t>& frameBuffer, const std::vector<u
         }
     }
 
-    mainTexture->update(frameBuffer.data());
-    mainSprite.emplace(mainTexture.value());
-    mainWindow.clear();
-    mainWindow.draw(mainSprite.value());
-    mainWindow.display();
-
     tileDataTexture->update(tileDataBuffer.data());
     tileDataSprite.emplace(tileDataTexture.value());
     tileDataWindow.clear();
@@ -66,4 +68,3 @@ void Screen::update(const std::vector<uint8_t>& frameBuffer, const std::vector<u
     tileMapWindow.draw(tileMapSprite.value());
     tileMapWindow.display();
 }
-

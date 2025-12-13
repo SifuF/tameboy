@@ -10,10 +10,6 @@ CPULR35902::CPULR35902(Bus* bus) : bus(bus) {
     initOpcodeHandlers();
 }
 
-CPULR35902::~CPULR35902() {
-
-}
-
 void CPULR35902::printState() {
     auto* mem = bus->getMap();
     std::cout << std::hex << "CPU state:\n"
@@ -100,6 +96,9 @@ bool CPULR35902::getFlag(Flag flag) {
 void CPULR35902::processInterrupts() {
     const auto interruptEnable = bus->read<uint8_t>(0xFFFF);
     const auto interruptFlag = bus->read<uint8_t>(0xFF0F);
+    if (interruptEnable & interruptFlag) {
+        halt = false;
+    }
     for (int i = static_cast<int>(Interrupt::VBlank); i <= static_cast<int>(Interrupt::Joypad); ++i)
     {
         const auto mask = 1 << i;

@@ -19,7 +19,6 @@ enum Flag {
 class CPULR35902 {
 public:
     CPULR35902(Bus* bus);
-    ~CPULR35902();
     void reset(); 
 
     uint64_t fetchDecodeExecute();

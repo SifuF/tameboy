@@ -98,7 +98,7 @@ void PPU::drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, int LC) {
     }
 };
 
-void PPU::updateVramDisplay()
+void PPU::updateDebugVramDisplays()
 {
      // tile blocks
     constexpr int tileBlockWidth = 16;
@@ -121,11 +121,6 @@ void PPU::updateVramDisplay()
             drawAlignedTile(tileMapBuffer, { i, j + 32 }, bus->read<uint8_t>(0x9C00 + i + tileMapSize * j), unsignedMode); // window
         }
     }
-}
-
-void PPU::horizontalInterrupt()
-{
-    LOG("hSync")
 }
 
 void PPU::verticalInterrupt()
