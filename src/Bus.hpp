@@ -27,21 +27,6 @@ private:
     void printMap(uint16_t offset, uint16_t lines);
     void compareLogo();
 
-    void timerInterrupt()
-    {
-        const auto newInterruptFlag = Utils::setBit(read<uint8_t>(0xFF0F), 1);
-        write<uint8_t>(0xFF0F, newInterruptFlag);
-        LOG("Timer interrupt");
-    }
-
-    void tickTimer() {
-        const auto tima = read<uint8_t>(0xFF05);
-        const auto modulo = read<uint8_t>(0xFF06);
-        const auto update = (tima == 0xFF) ? modulo : tima + 1;
-        write<uint8_t>(0xFF05, update);
-        timerInterrupt();
-    }
-
     bool bootRom = true;
     std::unique_ptr<uint8_t[]> m_boot = nullptr;
     std::unique_ptr<uint8_t[]> m_map = nullptr;

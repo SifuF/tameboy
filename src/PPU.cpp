@@ -64,8 +64,8 @@ void PPU::drawAlignedTile(Vbuffer& buffer, XY tilePos, uint16_t tile, bool unsig
 };
 
 void PPU::drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, int LC) {
-    const auto unsignedMode = static_cast<bool>((LCDC & 0b00010000) >> 4);
-    const auto backgroundTileMapAddr = static_cast<bool>((LCDC & 0b00001000) >> 3) ? 0x9C00 : 0x9800; // 9800-9BFF : 9C00-9FFF (32x32 = 1024 bytes)
+    const auto unsignedMode = static_cast<bool>(LCDC & 0b00010000);
+    const auto backgroundTileMapAddr = static_cast<bool>(LCDC & 0b00001000) ? 0x9C00 : 0x9800; // 9800-9BFF : 9C00-9FFF (32x32 = 1024 bytes)
     for (int tileSlice = 0; tileSlice < 20; ++tileSlice) {   
         for (int pixel = 0; pixel < 8; ++pixel) { // one 8 tile row at a time
             const auto xTile = ( (SCX + 8 * tileSlice + pixel) % 160 ) / 8;
@@ -125,9 +125,16 @@ void PPU::updateDebugVramDisplays()
 
 void PPU::verticalInterrupt()
 {
-    const auto newInterruptFlag = Utils::setBit(bus->read<uint8_t>(0xFF0F), 0);
+    const auto newInterruptFlag = Utils::setBit(bus->read<uint8_t>(0xFF0F), static_cast<int>(Interrupt::VBlank));
     bus->write<uint8_t>(0xFF0F, newInterruptFlag);
-    LOG("vSync")
+    LOG("VBlank interrupt");
+}
+
+void PPU::statInterrupt()
+{
+    const auto newInterruptFlag = Utils::setBit(bus->read<uint8_t>(0xFF0F), static_cast<int>(Interrupt::LCD));
+    bus->write<uint8_t>(0xFF0F, newInterruptFlag);
+    LOG("LCD interrupt");
 }
 
 void PPU::drawDots() {
@@ -214,16 +221,30 @@ void PPU::tick(uint32_t cycles) {
     }
     */
 
-    static int line = 0;
-    bus->write<uint8_t>(0xFF44, line);
-    if (line < 144) {
-        drawLine(LCDC, SCX, SCY, line);
+    bus->write<uint8_t>(0xFF44, m_currentLine);
+
+    const auto LYC = bus->read<uint8_t>(0xFF45);
+    const auto STAT = bus->read<uint8_t>(0xFF41);
+    if (m_currentLine == LYC) {
+        const auto newSTAT = Utils::setBit(STAT, 2);
+        bus->write<uint8_t>(0xFF41, newSTAT);
+        if (STAT & 0b0100'0000) {
+            statInterrupt();
+        }
     }
-    if (line == 144) {
+    else {
+        const auto newSTAT = Utils::clearBit(STAT, 2);
+        bus->write<uint8_t>(0xFF41, newSTAT);
+    }
+    
+    if (m_currentLine < 144) {
+        drawLine(LCDC, SCX, SCY, m_currentLine);
+    }
+    if (m_currentLine == 144) {
         verticalInterrupt();
     }
-    if (line >= 153) {
-        line = -1;
+    if (m_currentLine >= 153) {
+        m_currentLine = -1;
     }
-    line++;
+    m_currentLine++;
 }

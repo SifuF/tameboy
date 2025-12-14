@@ -120,27 +120,27 @@ void CPULR35902::processInterrupts() {
             switch (interrupt) { 
                 using enum Interrupt;
                 case VBlank: {
-                    bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, 0));
+                    bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, static_cast<int>(Interrupt::VBlank)));
                     jumpToHandler(0x40);
                     break;
                 }
                 case LCD: {
-                    bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, 1));
+                    bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, static_cast<int>(Interrupt::LCD)));
                     jumpToHandler(0x48);
                     break;
                 }
                 case Timer: {
-                    bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, 2));
+                    bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, static_cast<int>(Interrupt::Timer)));
                     jumpToHandler(0x50);
                     break;
                 }
                 case Serial: {
-                    bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, 3));
+                    bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, static_cast<int>(Interrupt::Serial)));
                     jumpToHandler(0x58);
                     break;
                 }
                 case Joypad: {
-                    bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, 4));
+                    bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, static_cast<int>(Interrupt::Joypad)));
                     jumpToHandler(0x60);
                     break;
                 }

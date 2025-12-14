@@ -18,8 +18,8 @@
 #define LOGND(x)
 #endif
 
-enum Interrupt {
-    VBlank,
+enum class Interrupt {
+    VBlank = 0,
     LCD,
     Timer,
     Serial,

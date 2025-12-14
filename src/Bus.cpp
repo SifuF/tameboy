@@ -32,7 +32,7 @@ void Bus::start()
         screen.updateDebug(ppu.getTileDataBuffer(), ppu.getTileMapBuffer());
     };
 
-    const auto updateTimer = [&](uint64_t& counter) 
+    const auto processTimer = [&](uint64_t& counter)
     {
         const auto tac = read<uint8_t>(0xFF07);
         const auto enable = static_cast<bool>(tac & 0b0000'0100);
@@ -50,12 +50,23 @@ void Bus::start()
             default: throw std::runtime_error("Bad clock select");
         }
         if (counter >= clock) {
-            tickTimer();
+            const auto tima = read<uint8_t>(0xFF05);
+            const auto modulo = read<uint8_t>(0xFF06);
+            if (tima == 0xFF) {
+                write<uint8_t>(0xFF05, modulo);
+
+                const auto newInterruptFlag = Utils::setBit(read<uint8_t>(0xFF0F), static_cast<int>(Interrupt::Timer));
+                write<uint8_t>(0xFF0F, newInterruptFlag);
+                LOG("Timer interrupt");
+            }
+            else {
+                write<uint8_t>(0xFF05, tima + 1);
+            }
             counter -= clock;
         }
     };
 
-    const auto updateDivider = [&](uint64_t& counter)
+    const auto processDivider = [&](uint64_t& counter)
     {
         if (counter >= 64) {
             m_map[0xFF04] += 1;
@@ -63,14 +74,35 @@ void Bus::start()
         }
     };
 
+    const auto processSerial = [&](uint64_t& counter)
+    {
+        if (counter >= 4) {                        // |        7        | 6 5 4 3 2 |      1      |      0       |
+            const auto SC = read<uint8_t>(0xFF02); // | Transfer enable |           | Clock speed | Clock select |
+            if (SC == 0b1000'0001) {  // transfer enable & master clock
+                const auto SB = read<uint8_t>(0xFF01);
+                std::cout << static_cast<int >(SB);
+                const auto clearEnable = Utils::clearBit(SC, 7);
+                write<uint8_t>(0xFF02, clearEnable);
+
+                const auto newInterruptFlag = Utils::setBit(read<uint8_t>(0xFF0F), static_cast<int>(Interrupt::Serial));
+                write<uint8_t>(0xFF0F, newInterruptFlag);
+                LOG("Serial interrupt");
+            }
+            counter -= 4;
+        }
+    };
+
     uint64_t instructionCounter{};
+    
     uint64_t timerCycleCounter{};
     uint64_t dividerCycleCounter{};
+    uint64_t serialCycleCounter{};
 
     while (true)
     {
-        updateTimer(timerCycleCounter);
-        updateDivider(dividerCycleCounter);
+        processTimer(timerCycleCounter);
+        processDivider(dividerCycleCounter);
+        processSerial(serialCycleCounter);
 
         const auto cycles = cpu.fetchDecodeExecute();
 
@@ -85,6 +117,7 @@ void Bus::start()
         
         timerCycleCounter += cycles;
         dividerCycleCounter += cycles;
+        serialCycleCounter += cycles;
     }
 }
 

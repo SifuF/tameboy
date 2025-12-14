@@ -35,6 +35,7 @@ private:
     void drawDots();
     
     void verticalInterrupt();
+    void statInterrupt();
 
     Vbuffer frameBuffer;
     Vbuffer tileDataBuffer;
@@ -43,6 +44,6 @@ private:
 
     uint32_t m_dots;
     Mode m_mode = Mode::OAMSCAN;
-    uint8_t m_currentLine;
+    uint8_t m_currentLine{};
     uint32_t m_dotsDrawn;
 };
