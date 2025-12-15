@@ -8,7 +8,7 @@ Screen::Screen() {
     mainWindow.create(sf::VideoMode(sf::Vector2u(mainWidth, mainHeight)), "tameBOY");
     mainTexture.emplace(sf::Vector2u(mainWidth, mainHeight ));
     mainWindow.setSize(sf::Vector2u(mainScale* mainWidth, mainScale* mainHeight));
-    const sf::Vector2i windowPosition{700, 400};
+    const sf::Vector2i windowPosition{700, 0};
     mainWindow.setPosition(windowPosition);
 
     tileDataWindow.create(sf::VideoMode(sf::Vector2u(tileDataWidth, tileDataHeight)), "VRAM Tile Data");

@@ -21,6 +21,11 @@ public:
 
     // debug
     uint8_t* getMap() { return m_map.get(); }
+    void forceDraw()
+    {
+        ppu.updateDebugVramDisplays();
+        screen.updateDebug(ppu.getTileDataBuffer(), ppu.getTileMapBuffer());
+    }
 
 private:
     void readFile(char* buffer, const char* filename);
@@ -37,8 +42,12 @@ private:
 
 template<typename T>
 T Bus::read(uint16_t addr) {
-    auto & map = (bootRom && (addr < 0x100)) ? m_boot : m_map;   
+    auto & map = (bootRom && (addr < 0x100)) ? m_boot : m_map;
    
+    if (addr == 0xFF00) {
+        return 0x0001'1111; // TODO - buttons
+    }
+
     if constexpr (sizeof(T)==1) {
         return map[addr];
     }

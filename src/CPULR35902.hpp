@@ -49,6 +49,7 @@ private:
     uint64_t T = 0;
     bool halt = false;
     bool stop = false; 
+    bool eiPending = false;
     bool interruptMasterEnable = false;
     Bus* bus;
 

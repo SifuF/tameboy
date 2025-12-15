@@ -21,26 +21,27 @@ void CPULR35902::printState() {
         << "PC=" << PC.w << "\n"
 
         // Timer registers
-        << "TIMA 0xFF05=" << static_cast<int>(*(mem + 0xFF05)) << " "  // Timer counter
-        << "TMA 0xFF06=" << static_cast<int>(*(mem + 0xFF06)) << " "  // Timer modulo
-        << "TAC 0xFF07=" << static_cast<int>(*(mem + 0xFF07)) << " "  // Timer control
+        << "TIMA(0xFF05)=" << static_cast<int>(*(mem + 0xFF05)) << " "  // Timer counter
+        << "TMA(0xFF06)=" << static_cast<int>(*(mem + 0xFF06)) << " "  // Timer modulo
+        << "TAC(0xFF07)=" << static_cast<int>(*(mem + 0xFF07)) << " "  // Timer control
 
         // LCD control & status
-        << "LCDC 0xFF40=" << static_cast<int>(*(mem + 0xFF40)) << " "  // LCD Control
-        << "STAT 0xFF41=" << static_cast<int>(*(mem + 0xFF41)) << " "  // LCD Status
-        << "SCY 0xFF42=" << static_cast<int>(*(mem + 0xFF42)) << " "  // Scroll Y
-        << "SCX 0xFF43=" << static_cast<int>(*(mem + 0xFF43)) << " "  // Scroll X
+        << "LCDC(0xFF40)=" << static_cast<int>(*(mem + 0xFF40)) << " "  // LCD Control
+        << "STAT(0xFF41)=" << static_cast<int>(*(mem + 0xFF41)) << " "  // LCD Status
+        << "SCY(0xFF42)=" << static_cast<int>(*(mem + 0xFF42)) << " "  // Scroll Y
+        << "SCX(0xFF43)=" << static_cast<int>(*(mem + 0xFF43)) << " "  // Scroll X
+        << "LY(0xFF44)=" << static_cast<int>(*(mem + 0xFF44)) << " "  // LY
 
         // More LCD / PPU registers
-        << "LYC 0xFF45=" << static_cast<int>(*(mem + 0xFF45)) << " "  // LY Compare
-        << "BGP 0xFF47=" << static_cast<int>(*(mem + 0xFF47)) << " "  // BG Palette Data
-        << "OBP0 0xFF48=" << static_cast<int>(*(mem + 0xFF48)) << " "  // OBJ Palette 0 Data
-        << "OBP1 0xFF49=" << static_cast<int>(*(mem + 0xFF49)) << " "  // OBJ Palette 1 Data
-        << "WY 0xFF4A=" << static_cast<int>(*(mem + 0xFF4A)) << " "  // Window Y position
-        << "WX 0xFF4B=" << static_cast<int>(*(mem + 0xFF4B)) << " "  // Window X position
+        << "LYC(0xFF45)=" << static_cast<int>(*(mem + 0xFF45)) << " "  // LY Compare
+        << "BGP(0xFF47)=" << static_cast<int>(*(mem + 0xFF47)) << " "  // BG Palette Data
+        << "OBP0(0xFF48)=" << static_cast<int>(*(mem + 0xFF48)) << " "  // OBJ Palette 0 Data
+        << "OBP1(0xFF49)=" << static_cast<int>(*(mem + 0xFF49)) << " "  // OBJ Palette 1 Data
+        << "WY(0xFF4A)=" << static_cast<int>(*(mem + 0xFF4A)) << " "  // Window Y position
+        << "WX(0xFF4B)=" << static_cast<int>(*(mem + 0xFF4B)) << " "  // Window X position
 
         // Interrupt Enable register
-        << "IE 0xFFFF=" << static_cast<int>(*(mem + 0xFFFF)) << " "  // Interrupt Enable Flags
+        << "IE(0xFFFF)=" << static_cast<int>(*(mem + 0xFFFF)) << " "  // Interrupt Enable Flags
         << "\n";
 }
 
@@ -155,24 +156,37 @@ uint64_t CPULR35902::fetchDecodeExecute() {
 
     static unsigned long long instructionCounter = 0;
     static unsigned long long instructionTarget = 100000000;
-    static bool canStep = true;
 
-    if (PC.w == 0x2bb) {
-        // instructionTarget = instructionCounter;
+    static unsigned pcOfInterest = 0x2ca;
+    //static unsigned pcOfInterest = 0x27d3;
+    //static unsigned pcOfInterest = 0x0;
+    if (PC.w == pcOfInterest) {
+        //instructionTarget = instructionCounter;
     }
 
-    if (canStep && (instructionTarget == instructionCounter)) {
+    static bool skippingInterrupt = false;
+
+    static bool helped = false;
+    if (instructionTarget == instructionCounter) {
         m_debug = true;
-        std::cout << "Enter no. of instructions to run, Enter = step, s = dump CPU state, c = continue >>> ";
+        if (!helped) {
+            std::cout << "Enter no. of instructions to run, Enter = step, s = dump CPU state, pX = set PC+=X, d = draw >>> ";
+            helped = true;
+        }
         std::string str{};
         try {
             std::getline(std::cin, str);
             instructionTarget = instructionCounter + 1;
-            if (str == "c") {
-                canStep = false;
-            }
-            else if (str == "s") {
+            if (str == "s") {
                 printState();
+            }
+            else if (str[0] == 'p') { // TODO - make this work
+                if (std::isdigit(str[1])) {
+                    PC.w += str[1] - '0';
+                }
+            }
+            else if (str == "d") {
+                bus->forceDraw();
             }
             else if (str == "") {
 
@@ -192,8 +206,16 @@ uint64_t CPULR35902::fetchDecodeExecute() {
     if (m_debug)
         std::cout << std::dec << instructionCounter << ": ";
 
-    if(interruptMasterEnable)
+    if (interruptMasterEnable && !skippingInterrupt) {
         processInterrupts();
+    }
+    skippingInterrupt = false;
+
+    if (eiPending) {
+        interruptMasterEnable = true;
+        eiPending = false;
+        skippingInterrupt = true;
+    }
 
     if(halt || stop)
         return 0;
@@ -1886,7 +1908,7 @@ void CPULR35902::OP_FA() {
     if (m_debug) logInstruction("LD A, ($" + toHexString(addr) + ")");
 }
 void CPULR35902::OP_FB() {
-    interruptMasterEnable = true;
+    eiPending = true;
     if (m_debug) logInstruction("EI");
 }
 void CPULR35902::OP_FC() {

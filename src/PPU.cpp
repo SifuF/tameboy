@@ -113,7 +113,7 @@ void PPU::updateDebugVramDisplays()
 
     // tilemaps
     const auto LCDC = bus->read<uint8_t>(0xFF40);
-    const auto unsignedMode = static_cast<bool>(LCDC & 0b0001'0000);
+    const auto unsignedMode = static_cast<bool>(LCDC & 0b00010000);
     constexpr int tileMapSize = 32;
     for (int j = 0; j < tileMapSize; ++j) {
         for (int i = 0; i < tileMapSize; ++i) {
@@ -241,7 +241,7 @@ void PPU::tick(uint32_t cycles) {
         drawLine(LCDC, SCX, SCY, m_currentLine);
     }
     if (m_currentLine == 144) {
-        verticalInterrupt();
+        verticalInterrupt(); //TODO - put back
     }
     if (m_currentLine >= 153) {
         m_currentLine = -1;
