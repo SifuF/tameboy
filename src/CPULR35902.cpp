@@ -6,12 +6,23 @@
 #include <sstream>
 #include <string>
 
-CPULR35902::CPULR35902(Bus* bus) : bus(bus) {
+CPULR35902::CPULR35902(Bus* bus) : m_bus(bus)
+{
     initOpcodeHandlers();
+
+    //tetris
+    //MainLoop::
+    //       call ReadJoypad
+    //       call.dispatch;
+    //0x2ca: call UpdateAudio
+
+    //0x2cd: ldh a, [hJoyHeld]
+    m_pcOfInterest = 0x2cd; // TODO - debug
 }
 
-void CPULR35902::printState() {
-    auto* mem = bus->getMap();
+void CPULR35902::printState()
+{
+    auto* mem = m_bus->getMap();
     std::cout << std::hex << "CPU state:\n"
         << "AF=" << AF.w << " "
         << "BC=" << BC.w << " "
@@ -42,20 +53,24 @@ void CPULR35902::printState() {
 
         // Interrupt Enable register
         << "IE(0xFFFF)=" << static_cast<int>(*(mem + 0xFFFF)) << " "  // Interrupt Enable Flags
+        << "IF(0xFF0F)=" << static_cast<int>(*(mem + 0xFF0F)) << " "  // Interrupt Requsted Flags
         << "\n";
 }
 
-void CPULR35902::reset() {
+void CPULR35902::reset()
+{
     AF.w = 0;
     BC.w = 0;
     DE.w = 0;
     HL.w = 0;
     SP.w = 0;
-    PC.w = 0x0; // TODO PC.w = 0x100;
+    PC.w = 0x0;
 }
 
-void CPULR35902::setFlags(int Z, int  N, int  H, int C) {
-    const auto set = [this](Flag flag, bool high){
+void CPULR35902::setFlags(int Z, int  N, int  H, int C) 
+{
+    const auto set = [this](Flag flag, bool high)
+    {
         uint8_t mask = 0;
         switch(flag) {
             case Flag::Z : { mask = 0b10000000; break; }
@@ -83,7 +98,8 @@ void CPULR35902::setFlags(int Z, int  N, int  H, int C) {
         set(Flag::C, C);
 }
 
-bool CPULR35902::getFlag(Flag flag) {
+bool CPULR35902::getFlag(Flag flag)
+{
     switch(flag) {
         using enum Flag;
         case Z : { return static_cast<bool>(AF.right & 0b10000000); }
@@ -94,11 +110,12 @@ bool CPULR35902::getFlag(Flag flag) {
     }
 }
 
-void CPULR35902::processInterrupts() {
-    const auto interruptEnable = bus->read<uint8_t>(0xFFFF);
-    const auto interruptFlag = bus->read<uint8_t>(0xFF0F);
+void CPULR35902::processInterrupts()
+{
+    const auto interruptEnable = m_bus->read<uint8_t>(0xFFFF);
+    const auto interruptFlag = m_bus->read<uint8_t>(0xFF0F);
     if (interruptEnable & interruptFlag) {
-        halt = false;
+        m_halt = false;
     }
     for (int i = static_cast<int>(Interrupt::VBlank); i <= static_cast<int>(Interrupt::Joypad); ++i)
     {
@@ -106,12 +123,12 @@ void CPULR35902::processInterrupts() {
         const auto interrupt = static_cast<Interrupt>(i);
         if (interruptFlag & interruptEnable & mask)
         {
-            interruptMasterEnable = false;
+            m_interruptMasterEnable = false;
             
             auto jumpToHandler = [&](uint16_t addr) {
                 T += 20;
                 SP.w -= 2;
-                bus->write<uint16_t>(SP.w, PC.w);
+                m_bus->write<uint16_t>(SP.w, PC.w);
                 PC.w = addr;
 
                 if(m_debug)
@@ -121,27 +138,27 @@ void CPULR35902::processInterrupts() {
             switch (interrupt) { 
                 using enum Interrupt;
                 case VBlank: {
-                    bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, static_cast<int>(Interrupt::VBlank)));
+                    m_bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, static_cast<int>(Interrupt::VBlank)));
                     jumpToHandler(0x40);
                     break;
                 }
                 case LCD: {
-                    bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, static_cast<int>(Interrupt::LCD)));
+                    m_bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, static_cast<int>(Interrupt::LCD)));
                     jumpToHandler(0x48);
                     break;
                 }
                 case Timer: {
-                    bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, static_cast<int>(Interrupt::Timer)));
+                    m_bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, static_cast<int>(Interrupt::Timer)));
                     jumpToHandler(0x50);
                     break;
                 }
                 case Serial: {
-                    bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, static_cast<int>(Interrupt::Serial)));
+                    m_bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, static_cast<int>(Interrupt::Serial)));
                     jumpToHandler(0x58);
                     break;
                 }
                 case Joypad: {
-                    bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, static_cast<int>(Interrupt::Joypad)));
+                    m_bus->write<uint8_t>(0xFF0F, Utils::clearBit(interruptFlag, static_cast<int>(Interrupt::Joypad)));
                     jumpToHandler(0x60);
                     break;
                 }
@@ -151,96 +168,101 @@ void CPULR35902::processInterrupts() {
     }
 }
 
-uint64_t CPULR35902::fetchDecodeExecute() {
+uint64_t CPULR35902::fetchDecodeExecute()
+{
     const uint64_t Tstart = T;
-
-    static unsigned long long instructionCounter = 0;
-    static unsigned long long instructionTarget = 100000000;
-
-    static unsigned pcOfInterest = 0x2ca;
-    //static unsigned pcOfInterest = 0x27d3;
-    //static unsigned pcOfInterest = 0x0;
-    if (PC.w == pcOfInterest) {
-        //instructionTarget = instructionCounter;
+    
+    if ((PC.w == m_pcOfInterest) || (m_instructionCounter == m_instructionCountOfInterest)) {
+        m_debug = true;
     }
 
     static bool skippingInterrupt = false;
 
-    static bool helped = false;
-    if (instructionTarget == instructionCounter) {
-        m_debug = true;
+    if (m_debug) {
+        static bool helped = false;
         if (!helped) {
-            std::cout << "Enter no. of instructions to run, Enter = step, s = dump CPU state, pX = set PC+=X, d = draw >>> ";
+            std::cout << "TameBoy Debugger v0.1\n\tX : run X instructions (dec)\n\tEnter : step single instruction\n\ts : dump CPU state\n\tpX : increment PC by X (0-9)\n\td : draw tile maps\n\tmX : print byte (hex)\n";
             helped = true;
         }
-        std::string str{};
-        try {
-            std::getline(std::cin, str);
-            instructionTarget = instructionCounter + 1;
-            if (str == "s") {
-                printState();
-            }
-            else if (str[0] == 'p') { // TODO - make this work
-                if (std::isdigit(str[1])) {
-                    PC.w += str[1] - '0';
+        while (true) {
+            try {
+                std::cout << ">>> ";
+                std::string str{};
+                std::getline(std::cin, str);
+                if (str == "s") {
+                    printState();
+                }
+                else if (str[0] == 'p') {
+                    if (std::isdigit(str[1])) {
+                        PC.w += str[1] - '0';
+                    }
+                }
+                else if (str == "d") {
+                    std::cout << "tile maps drawn" << std::endl;
+                    m_bus->forceDraw();
+                }
+                else if (str[0] == 'm') {
+                    const auto end = str.find_first_of(' ');
+                    const auto addr = std::stoi(str.substr(1, end), nullptr, 16);
+                    const auto& map = m_bus->getMap();
+                    std::cout << std::hex << "0x" << addr << ": " << (int)map[addr] << std::endl;
+
+                }
+                else if (str == "") {
+                    break;
+                }
+                else {
+                    const auto numInstructions = std::stoi(str);
+                    std::cout << "running " << std::dec << numInstructions << std::hex << " instructions" << std::endl;
+                    m_instructionCountOfInterest = m_instructionCounter + numInstructions;
+                    m_debug = false;
+                    break;
                 }
             }
-            else if (str == "d") {
-                bus->forceDraw();
-            }
-            else if (str == "") {
-
-            }
-            else {
-                instructionTarget += std::stoi(str);
+            catch(...) {
+                std::cout << "unknown debugger command" << std::endl;
             }
         }
-        catch (...) {
-            std::cout << "invalid no. of instructions!\n";
-        }
-    }
-    else {
-        m_debug = false;
     }
 
     if (m_debug)
-        std::cout << std::dec << instructionCounter << ": ";
+        std::cout << std::dec << m_instructionCounter << ": ";
 
-    if (interruptMasterEnable && !skippingInterrupt) {
+    if (m_interruptMasterEnable && !skippingInterrupt)
         processInterrupts();
-    }
+
     skippingInterrupt = false;
 
-    if (eiPending) {
-        interruptMasterEnable = true;
-        eiPending = false;
+    if (m_eiPending) {
+        m_interruptMasterEnable = true;
+        m_eiPending = false;
         skippingInterrupt = true;
     }
 
-    if(halt || stop)
+    if(m_halt || m_stop)
         return 0;
  
     if (m_debug)
         std::cout << std::hex << "PC=" << static_cast<int>(PC.w) << " ";
 
-    const auto instruction = bus->read<uint8_t>(PC.w);
+    const auto instruction = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     if (m_debug)
         logInstruction(toHexString(instruction), false);
 
     if(instruction == 0xCB) {
-        const auto prefixInstruction = bus->read<uint8_t>(PC.w);
+        const auto prefixInstruction = m_bus->read<uint8_t>(PC.w);
         PC.w++;
         if (m_debug)
             logInstruction(toHexString(prefixInstruction), false);
         
-        prefixHandler[prefixInstruction]();
+        m_prefixHandler[prefixInstruction]();
     }
     else {
-        opcodeHandler[instruction]();
+        m_opcodeHandler[instruction]();
     }
 
-    instructionCounter++;
+    m_instructionCounter++;
 
     return T - Tstart;
 }
@@ -257,13 +279,13 @@ void CPULR35902::OP_00() {
 }
 void CPULR35902::OP_01() {
     T += 12;
-    BC.w = bus->read<uint16_t>(PC.w);
+    BC.w = m_bus->read<uint16_t>(PC.w);
     PC.w += 2;
     if (m_debug) logInstruction("LD BC, $" + toHexString(BC.w));
 }
 void CPULR35902::OP_02() {
     T += 8;
-    bus->write<uint8_t>(BC.w, AF.left);
+    m_bus->write<uint8_t>(BC.w, AF.left);
     if (m_debug) logInstruction("LD (BC), A");
 }
 void CPULR35902::OP_03() {
@@ -287,7 +309,7 @@ void CPULR35902::OP_05() {
 }
 void CPULR35902::OP_06() {
     T += 8;
-    BC.left = bus->read<uint8_t>(PC.w);
+    BC.left = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     if (m_debug) logInstruction("LD B, $" + toHexString(BC.left));
 }
@@ -300,9 +322,9 @@ void CPULR35902::OP_07() { // TODO Check Z flag
 }
 void CPULR35902::OP_08() {
     T += 20;
-    const auto addr = bus->read<uint16_t>(PC.w);
+    const auto addr = m_bus->read<uint16_t>(PC.w);
     PC.w += 2;
-    bus->write<uint16_t>(addr, SP.w);
+    m_bus->write<uint16_t>(addr, SP.w);
     if (m_debug) logInstruction("LD ($" + toHexString(addr) + ") ,SP");
 }
 void CPULR35902::OP_09() {
@@ -315,7 +337,7 @@ void CPULR35902::OP_09() {
 }
 void CPULR35902::OP_0A() {
     T += 8;
-    AF.left = bus->read<uint8_t>(BC.w);
+    AF.left = m_bus->read<uint8_t>(BC.w);
     if (m_debug) logInstruction("LD A, (BC)");
 }
 void CPULR35902::OP_0B() {
@@ -339,7 +361,7 @@ void CPULR35902::OP_0D() {
 }
 void CPULR35902::OP_0E() {
     T += 8;
-    BC.right = bus->read<uint8_t>(PC.w);
+    BC.right = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     if (m_debug) logInstruction("LD C, $" + toHexString(BC.right));
 }
@@ -352,20 +374,20 @@ void CPULR35902::OP_0F() {
 }
 void CPULR35902::OP_10() {
     T += 4;
-    stop = true;
-    const auto value = bus->read<uint8_t>(PC.w);
+    m_stop = true;
+    const auto value = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     if (m_debug) logInstruction("STOP " + toHexString(value));
 }
 void CPULR35902::OP_11() {
     T += 12;
-    DE.w = bus->read<uint16_t>(PC.w);
+    DE.w = m_bus->read<uint16_t>(PC.w);
     PC.w += 2;
     if (m_debug) logInstruction("LD DE, $" + toHexString(DE.w));
 }
 void CPULR35902::OP_12() {
     T += 8;
-    bus->write<uint8_t>(DE.w, AF.left);
+    m_bus->write<uint8_t>(DE.w, AF.left);
     if (m_debug) logInstruction("LD (DE), A");
 }
 void CPULR35902::OP_13() {
@@ -389,7 +411,7 @@ void CPULR35902::OP_15() {
 }
 void CPULR35902::OP_16() {
     T += 8;
-    DE.left = bus->read<uint8_t>(PC.w);
+    DE.left = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     if (m_debug) logInstruction("LD D, " + toHexString(DE.left));
 }
@@ -403,7 +425,7 @@ void CPULR35902::OP_17() {
 }
 void CPULR35902::OP_18() {
     T += 12;
-    const auto relative = bus->read<uint8_t>(PC.w);
+    const auto relative = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     PC.w += static_cast<int8_t>(relative);
     if (m_debug) logInstruction("JR $" + toHexString(relative));
@@ -418,7 +440,7 @@ void CPULR35902::OP_19() {
 }
 void CPULR35902::OP_1A() {
     T += 8;
-    AF.left = bus->read<uint8_t>(DE.w);
+    AF.left = m_bus->read<uint8_t>(DE.w);
     if (m_debug) logInstruction("LD A, (DE)");
 }
 void CPULR35902::OP_1B() {
@@ -442,7 +464,7 @@ void CPULR35902::OP_1D() {
 }
 void CPULR35902::OP_1E() {
     T += 8;
-    DE.right = bus->read<uint8_t>(PC.w);
+    DE.right = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     if (m_debug) logInstruction("LD E, $" + toHexString(DE.right));
 }
@@ -455,7 +477,7 @@ void CPULR35902::OP_1F() {
     if (m_debug) logInstruction("RRA");
 }
 void CPULR35902::OP_20() { // JP NZ, e8
-    const auto relative = bus->read<uint8_t>(PC.w);
+    const auto relative = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     const bool zero = getFlag(Flag::Z); 
     if(zero) {
@@ -469,13 +491,13 @@ void CPULR35902::OP_20() { // JP NZ, e8
 }
 void CPULR35902::OP_21() { // LD HL, n16
     T += 12;
-    HL.w = bus->read<uint16_t>(PC.w);
+    HL.w = m_bus->read<uint16_t>(PC.w);
     PC.w += 2;
     if (m_debug) logInstruction("LD HL, $" + toHexString(HL.w));
 }
 void CPULR35902::OP_22() {
     T += 8;
-    bus->write<uint8_t>(HL.w, AF.left);
+    m_bus->write<uint8_t>(HL.w, AF.left);
     HL.w++;
     if (m_debug) logInstruction("LD (HL+), A");
 }
@@ -500,7 +522,7 @@ void CPULR35902::OP_25() {
 }
 void CPULR35902::OP_26() {
     T += 8;
-    HL.left = bus->read<uint8_t>(PC.w);
+    HL.left = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     if (m_debug) logInstruction("LD H, " + toHexString(HL.left));
 }
@@ -515,7 +537,7 @@ void CPULR35902::OP_27() {
     if (m_debug) logInstruction("DAA");
 }
 void CPULR35902::OP_28() {
-    const auto relative = bus->read<uint8_t>(PC.w);
+    const auto relative = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     const bool zero = getFlag(Flag::Z); 
     if(zero) {
@@ -537,7 +559,7 @@ void CPULR35902::OP_29() {
 }
 void CPULR35902::OP_2A() {
     T += 8;
-    AF.left = bus->read<uint8_t>(HL.w);
+    AF.left = m_bus->read<uint8_t>(HL.w);
     HL.w++;
     if (m_debug) logInstruction("LD A, (HL+)");
 }
@@ -562,7 +584,7 @@ void CPULR35902::OP_2D() {
 }
 void CPULR35902::OP_2E() {
     T += 8;
-    HL.right = bus->read<uint8_t>(PC.w);
+    HL.right = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     if (m_debug) logInstruction("LD L, $" + toHexString(HL.right));
 }
@@ -573,7 +595,7 @@ void CPULR35902::OP_2F() {
     if (m_debug) logInstruction("CPL");
 }
 void CPULR35902::OP_30() {
-    const auto relative = bus->read<uint8_t>(PC.w);
+    const auto relative = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     const bool carry = getFlag(Flag::C); 
     if(carry) {
@@ -587,14 +609,14 @@ void CPULR35902::OP_30() {
 }
 void CPULR35902::OP_31() {
     T += 12;
-    SP.w = bus->read<uint16_t>(PC.w);
+    SP.w = m_bus->read<uint16_t>(PC.w);
     PC.w += 2;
     if (m_debug) logInstruction("LD SP, $" + toHexString(SP.w));
 }
 void CPULR35902::OP_32() {
     T += 8;
     HL.w--;
-    bus->write<uint8_t>(HL.w, AF.left);
+    m_bus->write<uint8_t>(HL.w, AF.left);
     if (m_debug) logInstruction("LD (HL-), A");
 }
 void CPULR35902::OP_33() {
@@ -604,27 +626,27 @@ void CPULR35902::OP_33() {
 }
 void CPULR35902::OP_34() {
     T += 12;
-    auto value = bus->read<uint16_t>(HL.w);
+    auto value = m_bus->read<uint16_t>(HL.w);
     const bool half = (value == 0xF);
     value++;
-    bus->write<uint8_t>(HL.w, value);
+    m_bus->write<uint8_t>(HL.w, value);
     setFlags((value == 0), 0, half, -1);
     if (m_debug) logInstruction("INC (HL)");
 }
 void CPULR35902::OP_35() {
     T += 12;
-    auto value = bus->read<uint16_t>(HL.w);
+    auto value = m_bus->read<uint16_t>(HL.w);
     const bool half = (value == 0x0);
     value--;
-    bus->write<uint8_t>(HL.w, value);
+    m_bus->write<uint8_t>(HL.w, value);
     setFlags((value == 0), 1, half, -1);
     if (m_debug) logInstruction("DEC (HL)");
 }
 void CPULR35902::OP_36() {
     T += 12;
-    const auto value  = bus->read<uint8_t>(PC.w);
+    const auto value  = m_bus->read<uint8_t>(PC.w);
     PC.w++;
-    bus->write<uint8_t>(HL.w, value);
+    m_bus->write<uint8_t>(HL.w, value);
     if (m_debug) logInstruction("LD (HL), " + toHexString(BC.left));
 }
 void CPULR35902::OP_37() {
@@ -633,7 +655,7 @@ void CPULR35902::OP_37() {
     if (m_debug) logInstruction("SCF");
 }
 void CPULR35902::OP_38() {
-    const auto relative = bus->read<uint8_t>(PC.w);
+    const auto relative = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     const bool carry = getFlag(Flag::C); 
     if(carry) {
@@ -656,7 +678,7 @@ void CPULR35902::OP_39() {
 void CPULR35902::OP_3A() {
     T += 8;
     HL.w--;
-    AF.left = bus->read<uint8_t>(HL.w);
+    AF.left = m_bus->read<uint8_t>(HL.w);
     if (m_debug) logInstruction("LD A, (HL-)");
 }
 void CPULR35902::OP_3B() {
@@ -680,7 +702,7 @@ void CPULR35902::OP_3D() {
 }
 void CPULR35902::OP_3E() {
     T += 8;
-    AF.left = bus->read<uint8_t>(PC.w);
+    AF.left = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     if (m_debug) logInstruction("LD A, $" + toHexString(AF.left));
 }
@@ -720,7 +742,7 @@ void CPULR35902::OP_45() {
 }
 void CPULR35902::OP_46() {
     T += 8;
-    BC.left = bus->read<uint8_t>(HL.w);
+    BC.left = m_bus->read<uint8_t>(HL.w);
     if (m_debug) logInstruction("LD B, (HL)");
 }
 void CPULR35902::OP_47() {
@@ -759,7 +781,7 @@ void CPULR35902::OP_4D() {
 }
 void CPULR35902::OP_4E() {
     T += 8;
-    BC.right = bus->read<uint8_t>(HL.w);
+    BC.right = m_bus->read<uint8_t>(HL.w);
     if (m_debug) logInstruction("LD C, (HL)");
 }
 void CPULR35902::OP_4F() {
@@ -798,7 +820,7 @@ void CPULR35902::OP_55() {
 }
 void CPULR35902::OP_56() {
     T += 8;
-    DE.left = bus->read<uint8_t>(HL.w);
+    DE.left = m_bus->read<uint8_t>(HL.w);
     if (m_debug) logInstruction("LD D, (HL)");
 }
 void CPULR35902::OP_57() {
@@ -837,7 +859,7 @@ void CPULR35902::OP_5D() {
 }
 void CPULR35902::OP_5E() {
     T += 8;
-    DE.right = bus->read<uint8_t>(HL.w);
+    DE.right = m_bus->read<uint8_t>(HL.w);
     if (m_debug) logInstruction("LD E, (HL)");
 }
 void CPULR35902::OP_5F() {
@@ -876,7 +898,7 @@ void CPULR35902::OP_65() {
 }
 void CPULR35902::OP_66() {
     T += 8;
-    HL.left = bus->read<uint8_t>(HL.w);
+    HL.left = m_bus->read<uint8_t>(HL.w);
     if (m_debug) logInstruction("LD H, (HL)");
 }
 void CPULR35902::OP_67() {
@@ -915,7 +937,7 @@ void CPULR35902::OP_6D() {
 }
 void CPULR35902::OP_6E() {
     T += 8;
-    HL.right = bus->read<uint8_t>(HL.w);
+    HL.right = m_bus->read<uint8_t>(HL.w);
     if (m_debug) logInstruction("LD L, (HL)");
 }
 void CPULR35902::OP_6F() {
@@ -925,42 +947,42 @@ void CPULR35902::OP_6F() {
 }
 void CPULR35902::OP_70() {
     T += 8;
-    bus->write<uint8_t>(HL.w, BC.left);
+    m_bus->write<uint8_t>(HL.w, BC.left);
     if (m_debug) logInstruction("LD (HL), B");
 }
 void CPULR35902::OP_71() {
     T += 8;
-    bus->write<uint8_t>(HL.w, BC.right);
+    m_bus->write<uint8_t>(HL.w, BC.right);
     if (m_debug) logInstruction("LD (HL), C");
 }
 void CPULR35902::OP_72() {
     T += 8;
-    bus->write<uint8_t>(HL.w, DE.left);
+    m_bus->write<uint8_t>(HL.w, DE.left);
     if (m_debug) logInstruction("LD (HL), D");
 }
 void CPULR35902::OP_73() {
     T += 8;
-    bus->write<uint8_t>(HL.w, DE.right);
+    m_bus->write<uint8_t>(HL.w, DE.right);
     if (m_debug) logInstruction("LD (HL), E");
 }
 void CPULR35902::OP_74() {
     T += 8;
-    bus->write<uint8_t>(HL.w, HL.left);
+    m_bus->write<uint8_t>(HL.w, HL.left);
     if (m_debug) logInstruction("LD (HL), H");
 }
 void CPULR35902::OP_75() {
     T += 8;
-    bus->write<uint8_t>(HL.w, HL.right);
+    m_bus->write<uint8_t>(HL.w, HL.right);
     if (m_debug) logInstruction("LD (HL), L");
 }
 void CPULR35902::OP_76() {
     T += 4;
-    halt = true;
+    m_halt = true;
     if (m_debug) logInstruction("HALT");
 }
 void CPULR35902::OP_77() {
     T += 8;
-    bus->write<uint8_t>(HL.w, AF.left);
+    m_bus->write<uint8_t>(HL.w, AF.left);
     if (m_debug) logInstruction("LD (HL), A");
 }
 void CPULR35902::OP_78() {
@@ -995,7 +1017,7 @@ void CPULR35902::OP_7D() {
 }
 void CPULR35902::OP_7E() {
     T += 8;
-    AF.left = bus->read<uint8_t>(HL.w);
+    AF.left = m_bus->read<uint8_t>(HL.w);
     if (m_debug) logInstruction("LD A, (HL)");
 }
 void CPULR35902::OP_7F() {
@@ -1052,7 +1074,7 @@ void CPULR35902::OP_85() {
 }
 void CPULR35902::OP_86() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
+    const auto value = m_bus->read<uint8_t>(HL.w);
     const bool carry = (AF.left + value) > 0xFF;
     const bool half = ((AF.left & 0xF) + (value & 0xF)) > 0xF;
     AF.left += value;
@@ -1117,7 +1139,7 @@ void CPULR35902::OP_8D() {
 }
 void CPULR35902::OP_8E() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
+    const auto value = m_bus->read<uint8_t>(HL.w);
     const bool carry = (AF.left + value + getFlag(Flag::C)) > 0xFF;
     const bool half = ((AF.left & 0xF) + (value & 0xF) + getFlag(Flag::C)) > 0xF;
     AF.left += value + getFlag(Flag::C);
@@ -1182,7 +1204,7 @@ void CPULR35902::OP_95() {
 }
 void CPULR35902::OP_96() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
+    const auto value = m_bus->read<uint8_t>(HL.w);
     const bool carry = AF.left < value;
     const bool half = (AF.left & 0xF) < (value & 0xF);
     AF.left -= value;
@@ -1245,7 +1267,7 @@ void CPULR35902::OP_9D() {
 }
 void CPULR35902::OP_9E() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
+    const auto value = m_bus->read<uint8_t>(HL.w);
     const bool carry = AF.left < (value + getFlag(Flag::C));
     const bool half = (AF.left & 0xF) < ((value & 0xF) + getFlag(Flag::C));
     AF.left -= (value + getFlag(Flag::C));
@@ -1297,7 +1319,7 @@ void CPULR35902::OP_A5() {
 }
 void CPULR35902::OP_A6() {
     T += 8;
-    AF.left &= bus->read<uint8_t>(HL.w);
+    AF.left &= m_bus->read<uint8_t>(HL.w);
     setFlags((AF.left == 0), 0, 1, 0);
     if (m_debug) logInstruction("AND A, (HL)");
 }
@@ -1344,7 +1366,7 @@ void CPULR35902::OP_AD() {
 }
 void CPULR35902::OP_AE() {
     T += 8;
-    AF.left ^= bus->read<uint8_t>(HL.w);
+    AF.left ^= m_bus->read<uint8_t>(HL.w);
     setFlags((AF.left == 0), 0, 0, 0);
     if (m_debug) logInstruction("XOR A, (HL)");
 }
@@ -1392,7 +1414,7 @@ void CPULR35902::OP_B5() {
 }
 void CPULR35902::OP_B6() {
     T += 8;
-    AF.left |= bus->read<uint8_t>(HL.w);
+    AF.left |= m_bus->read<uint8_t>(HL.w);
     setFlags((AF.left == 0), 0, 0, 0);
     if (m_debug) logInstruction("OR A, (HL)");
 }
@@ -1445,7 +1467,7 @@ void CPULR35902::OP_BD() {
 }
 void CPULR35902::OP_BE() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w); 
+    const auto value = m_bus->read<uint8_t>(HL.w); 
     const bool carry = AF.left < value;
     const bool half = (AF.left & 0xF) < (value & 0xF);
     setFlags((AF.left == value), 1, half, carry);
@@ -1463,19 +1485,19 @@ void CPULR35902::OP_C0() {
     }
     else {
         T += 20;
-        PC.w = bus->read<uint16_t>(SP.w);
+        PC.w = m_bus->read<uint16_t>(SP.w);
         SP.w++;
     }
     if (m_debug) logInstruction("RET NZ");
 }
 void CPULR35902::OP_C1() {
     T += 12;
-    BC.w = bus->read<uint16_t>(SP.w);
+    BC.w = m_bus->read<uint16_t>(SP.w);
     SP.w += 2;
     if (m_debug) logInstruction("POP BC");
 }
 void CPULR35902::OP_C2() {
-    const auto addr = bus->read<uint16_t>(PC.w);
+    const auto addr = m_bus->read<uint16_t>(PC.w);
     PC.w += 2;
     const bool zero = getFlag(Flag::Z);
     if(zero) {
@@ -1489,11 +1511,11 @@ void CPULR35902::OP_C2() {
 }
 void CPULR35902::OP_C3() {  
     T += 16;
-    PC.w = bus->read<uint16_t>(PC.w);
+    PC.w = m_bus->read<uint16_t>(PC.w);
     if (m_debug) logInstruction("JP, $" + toHexString(PC.w));
 }
 void CPULR35902::OP_C4() {
-    const auto addr = bus->read<uint16_t>(PC.w);
+    const auto addr = m_bus->read<uint16_t>(PC.w);
     PC.w += 2;
     const bool zero = getFlag(Flag::Z);
     if(zero) {
@@ -1502,7 +1524,7 @@ void CPULR35902::OP_C4() {
     else {
         T += 24;
         SP.w -= 2;
-        bus->write<uint16_t>(SP.w, PC.w);
+        m_bus->write<uint16_t>(SP.w, PC.w);
         PC.w = addr;
     }
     if (m_debug) logInstruction("CALL NZ, $" + toHexString(addr));
@@ -1510,12 +1532,12 @@ void CPULR35902::OP_C4() {
 void CPULR35902::OP_C5() {
     T += 16;
     SP.w -= 2;
-    bus->write<uint16_t>(SP.w, BC.w);
+    m_bus->write<uint16_t>(SP.w, BC.w);
     if (m_debug) logInstruction("PUSH BC");
 }
 void CPULR35902::OP_C6() {
     T += 8;
-    const auto value = bus->read<uint8_t>(PC.w);
+    const auto value = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     const bool carry = (AF.left + value) > 0xFF;
     const bool half = ((AF.left & 0xF) + (value & 0xF)) > 0xF;
@@ -1526,7 +1548,7 @@ void CPULR35902::OP_C6() {
 void CPULR35902::OP_C7() {
     T += 16;
     SP.w -= 2;
-    bus->write<uint16_t>(SP.w, PC.w);
+    m_bus->write<uint16_t>(SP.w, PC.w);
     PC.w = 0x00;
     if (m_debug) logInstruction("RST $00");
 }
@@ -1534,7 +1556,7 @@ void CPULR35902::OP_C8() {
     const bool zero = getFlag(Flag::Z);
     if(zero) {
         T += 20;
-        PC.w = bus->read<uint16_t>(SP.w);
+        PC.w = m_bus->read<uint16_t>(SP.w);
         SP.w += 2;
     }
     else {
@@ -1544,12 +1566,12 @@ void CPULR35902::OP_C8() {
 }
 void CPULR35902::OP_C9() {
     T += 16;
-    PC.w = bus->read<uint16_t>(SP.w);
+    PC.w = m_bus->read<uint16_t>(SP.w);
     SP.w += 2;
     if (m_debug) logInstruction("RET");
 }
 void CPULR35902::OP_CA() {
-    const auto addr = bus->read<uint16_t>(PC.w);
+    const auto addr = m_bus->read<uint16_t>(PC.w);
     PC.w += 2;
     const bool zero = getFlag(Flag::Z);
     if(zero) {
@@ -1566,13 +1588,13 @@ void CPULR35902::OP_CB() {
     if (m_debug) logInstruction("PREFIX");
 }
 void CPULR35902::OP_CC() {
-    const auto addr = bus->read<uint16_t>(PC.w);
+    const auto addr = m_bus->read<uint16_t>(PC.w);
     PC.w += 2;
     const bool zero = getFlag(Flag::Z);
     if(zero) {
         T += 24;
         SP.w -= 2;
-        bus->write<uint16_t>(SP.w, PC.w);
+        m_bus->write<uint16_t>(SP.w, PC.w);
         PC.w = addr;
     }
     else {
@@ -1582,16 +1604,16 @@ void CPULR35902::OP_CC() {
 }
 void CPULR35902::OP_CD() {
     T += 24;
-    const auto addr = bus->read<uint16_t>(PC.w);
+    const auto addr = m_bus->read<uint16_t>(PC.w);
     PC.w += 2;
     SP.w -= 2;
-    bus->write<uint16_t>(SP.w, PC.w);
+    m_bus->write<uint16_t>(SP.w, PC.w);
     PC.w = addr;
     if (m_debug) logInstruction("CALL, $" + toHexString(addr));
 }
 void CPULR35902::OP_CE() {
     T += 8;
-    const auto value = bus->read<uint8_t>(PC.w);
+    const auto value = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     const bool carry = (AF.left + value + getFlag(Flag::C)) > 0xFF;
     const bool half = ((AF.left & 0xF) + (value & 0xF) + getFlag(Flag::C)) > 0xF;
@@ -1602,7 +1624,7 @@ void CPULR35902::OP_CE() {
 void CPULR35902::OP_CF() {
     T += 16;
     SP.w -= 2;
-    bus->write<uint16_t>(SP.w, PC.w);
+    m_bus->write<uint16_t>(SP.w, PC.w);
     PC.w = 0x08;
     if (m_debug) logInstruction("RST $08");
 }
@@ -1613,19 +1635,19 @@ void CPULR35902::OP_D0() {
     }
     else {
         T += 20;
-        PC.w = bus->read<uint16_t>(SP.w);
+        PC.w = m_bus->read<uint16_t>(SP.w);
         SP.w++;
     }
     if (m_debug) logInstruction("RET NC");
 }
 void CPULR35902::OP_D1() {
     T += 12;
-    DE.w = bus->read<uint16_t>(SP.w);
+    DE.w = m_bus->read<uint16_t>(SP.w);
     SP.w += 2;
     if (m_debug) logInstruction("POP DE");
 }
 void CPULR35902::OP_D2() {
-    const auto addr = bus->read<uint16_t>(PC.w);
+    const auto addr = m_bus->read<uint16_t>(PC.w);
     PC.w += 2;
     const bool carry = getFlag(Flag::C);
     if(carry) {
@@ -1641,7 +1663,7 @@ void CPULR35902::OP_D3() {
     throw std::runtime_error("Illegal instruction!");
 }
 void CPULR35902::OP_D4() {
-    const auto addr = bus->read<uint16_t>(PC.w);
+    const auto addr = m_bus->read<uint16_t>(PC.w);
     PC.w += 2;
     const bool carry = getFlag(Flag::C);
     if(carry) {
@@ -1650,7 +1672,7 @@ void CPULR35902::OP_D4() {
     else {
         T += 24;
         SP.w -= 2;
-        bus->write<uint16_t>(SP.w, PC.w);
+        m_bus->write<uint16_t>(SP.w, PC.w);
         PC.w = addr;
     }
     if (m_debug) logInstruction("CALL NC, $" + toHexString(addr));
@@ -1658,12 +1680,12 @@ void CPULR35902::OP_D4() {
 void CPULR35902::OP_D5() {
     T += 16;
     SP.w -= 2;
-    bus->write<uint16_t>(SP.w, DE.w);
+    m_bus->write<uint16_t>(SP.w, DE.w);
     if (m_debug) logInstruction("PUSH DE");
 }
 void CPULR35902::OP_D6() {
     T += 8;
-    const auto value = bus->read<uint8_t>(PC.w);
+    const auto value = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     const bool carry = AF.left < value; 
     const bool half = (AF.left & 0xF) < (value & 0xF);
@@ -1674,7 +1696,7 @@ void CPULR35902::OP_D6() {
 void CPULR35902::OP_D7() {
     T += 16;
     SP.w -= 2;
-    bus->write<uint16_t>(SP.w, PC.w);
+    m_bus->write<uint16_t>(SP.w, PC.w);
     PC.w = 0x10;
     if (m_debug) logInstruction("RST $10");
 }
@@ -1682,7 +1704,7 @@ void CPULR35902::OP_D8() {
     const bool carry = getFlag(Flag::C);
     if(carry) {
         T += 20;
-        PC.w = bus->read<uint16_t>(SP.w);
+        PC.w = m_bus->read<uint16_t>(SP.w);
         SP.w += 2;
     }
     else {
@@ -1692,13 +1714,13 @@ void CPULR35902::OP_D8() {
 }
 void CPULR35902::OP_D9() {
     T += 16;
-    PC.w = bus->read<uint16_t>(SP.w);
+    PC.w = m_bus->read<uint16_t>(SP.w);
     SP.w += 2;
-    interruptMasterEnable = true;
+    m_interruptMasterEnable = true;
     if (m_debug) logInstruction("RETI");
 }
 void CPULR35902::OP_DA() {
-    const auto addr = bus->read<uint16_t>(PC.w);
+    const auto addr = m_bus->read<uint16_t>(PC.w);
     PC.w += 2;
     const bool carry = getFlag(Flag::C);
     if(carry) {
@@ -1714,13 +1736,13 @@ void CPULR35902::OP_DB() {
     throw std::runtime_error("Illegal instruction!");    
 }
 void CPULR35902::OP_DC() {
-    const auto addr = bus->read<uint16_t>(PC.w);
+    const auto addr = m_bus->read<uint16_t>(PC.w);
     PC.w += 2;
     const bool carry = getFlag(Flag::C);
     if(carry) {
         T += 24;
         SP.w -= 2;
-        bus->write<uint16_t>(SP.w, PC.w);
+        m_bus->write<uint16_t>(SP.w, PC.w);
         PC.w = addr;
     }
     else {
@@ -1733,7 +1755,7 @@ void CPULR35902::OP_DD() {
 }
 void CPULR35902::OP_DE() {
     T += 8;
-    const auto value = bus->read<uint8_t>(PC.w);
+    const auto value = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     const bool carry = AF.left < (value + getFlag(Flag::C));
     const bool half = (AF.left & 0xF) < ((value & 0xF) + getFlag(Flag::C));
@@ -1744,25 +1766,25 @@ void CPULR35902::OP_DE() {
 void CPULR35902::OP_DF() {
     T += 16;
     SP.w -= 2;
-    bus->write<uint16_t>(SP.w, PC.w);
+    m_bus->write<uint16_t>(SP.w, PC.w);
     PC.w = 0x18;
     if (m_debug) logInstruction("RST $18");
 }
 void CPULR35902::OP_E0() { 
-    const auto value = bus->read<uint8_t>(PC.w);
+    const auto value = m_bus->read<uint8_t>(PC.w);
     PC.w++;
-    bus->write<uint8_t>(0xFF00 + value, AF.left);
+    m_bus->write<uint8_t>(0xFF00 + value, AF.left);
     if (m_debug) logInstruction("LDH ($FF00+$" + toHexString(value) + "), A");
 }
 void CPULR35902::OP_E1() {
     T += 12;
-    HL.w = bus->read<uint16_t>(SP.w);
+    HL.w = m_bus->read<uint16_t>(SP.w);
     SP.w += 2;
     if (m_debug) logInstruction("POP HL");
 }
 void CPULR35902::OP_E2() {
     T += 8;
-    bus->write<uint8_t>(0xFF00 + BC.right, AF.left);
+    m_bus->write<uint8_t>(0xFF00 + BC.right, AF.left);
     if (m_debug) logInstruction("LD (SFF00+C), A");
 }
 void CPULR35902::OP_E3() {
@@ -1774,12 +1796,12 @@ void CPULR35902::OP_E4() {
 void CPULR35902::OP_E5() {
     T += 16;
     SP.w -= 2;
-    bus->write<uint16_t>(SP.w, HL.w);
+    m_bus->write<uint16_t>(SP.w, HL.w);
     if (m_debug) logInstruction("PUSH HL");
 }
 void CPULR35902::OP_E6() {
     T += 8;
-    const auto value = bus->read<uint8_t>(PC.w);
+    const auto value = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     AF.left &= value;
     setFlags((AF.left == 0), 0, 1, 0);
@@ -1788,13 +1810,13 @@ void CPULR35902::OP_E6() {
 void CPULR35902::OP_E7() {
     T += 16;
     SP.w -= 2;
-    bus->write<uint16_t>(SP.w, PC.w);
+    m_bus->write<uint16_t>(SP.w, PC.w);
     PC.w = 0x20;
     if (m_debug) logInstruction("RST $20");
 }
 void CPULR35902::OP_E8() {
     T+=16;
-    const auto value = bus->read<uint8_t>(PC.w);
+    const auto value = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     const bool carry = (SP.right + value) > 0xFF;   
     const bool half = ((SP.w & 0xF) + (value & 0xF)) > 0xF;
@@ -1809,9 +1831,9 @@ void CPULR35902::OP_E9() {
 }
 void CPULR35902::OP_EA() {
     T += 16;
-    const auto addr = bus->read<uint16_t>(PC.w);
+    const auto addr = m_bus->read<uint16_t>(PC.w);
     PC.w += 2;
-    bus->write<uint8_t>(addr, AF.left);
+    m_bus->write<uint8_t>(addr, AF.left);
     if (m_debug) logInstruction("LD ($" + toHexString(addr) + "), A");
 }
 void CPULR35902::OP_EB() {
@@ -1827,7 +1849,7 @@ void CPULR35902::OP_ED() {
 }
 void CPULR35902::OP_EE() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
+    const auto value = m_bus->read<uint8_t>(HL.w);
     AF.left ^= value;
     setFlags((AF.left == 0), 0, 0, 0);
     if (m_debug) logInstruction("XOR A, $" + toHexString(value));
@@ -1835,30 +1857,30 @@ void CPULR35902::OP_EE() {
 void CPULR35902::OP_EF() {
     T += 16;
     SP.w -= 2;
-    bus->write<uint16_t>(SP.w, PC.w);
+    m_bus->write<uint16_t>(SP.w, PC.w);
     PC.w = 0x28;
     if (m_debug) logInstruction("RST $28");
 }
 void CPULR35902::OP_F0() {
     T += 12;
-    const auto value = bus->read<uint8_t>(PC.w);
+    const auto value = m_bus->read<uint8_t>(PC.w);
     PC.w++;
-    AF.left = bus->read<uint8_t>(0xFF00 + value);
+    AF.left = m_bus->read<uint8_t>(0xFF00 + value);
     if (m_debug) logInstruction("LDH A, ($FF00+" + toHexString(value) + ")");
 }
 void CPULR35902::OP_F1() {
     T += 12;
-    AF.w = bus->read<uint16_t>(SP.w);
+    AF.w = m_bus->read<uint16_t>(SP.w);
     SP.w += 2;
     if (m_debug) logInstruction("POP AF");
 }
 void CPULR35902::OP_F2() {
     T += 8;
-    AF.left = bus->read<uint8_t>(0xFF00 + BC.right);
+    AF.left = m_bus->read<uint8_t>(0xFF00 + BC.right);
     if (m_debug) logInstruction("LD A, (SFF00+C)");
 }
 void CPULR35902::OP_F3() {
-    interruptMasterEnable = false;
+    m_interruptMasterEnable = false;
     if (m_debug) logInstruction("DI");
 }
 void CPULR35902::OP_F4() {
@@ -1867,12 +1889,12 @@ void CPULR35902::OP_F4() {
 void CPULR35902::OP_F5() {
     T += 16;
     SP.w -= 2;
-    bus->write<uint16_t>(SP.w, AF.w);
+    m_bus->write<uint16_t>(SP.w, AF.w);
     if (m_debug) logInstruction("PUSH AF");
 }
 void CPULR35902::OP_F6() {
     T += 8;
-    const auto value = bus->read<uint8_t>(PC.w);
+    const auto value = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     AF.left |= value;
     setFlags((AF.left == 0), 0, 0, 0);
@@ -1881,13 +1903,13 @@ void CPULR35902::OP_F6() {
 void CPULR35902::OP_F7() {
     T += 16;
     SP.w -= 2;
-    bus->write<uint16_t>(SP.w, PC.w);
+    m_bus->write<uint16_t>(SP.w, PC.w);
     PC.w = 0x30;
     if (m_debug) logInstruction("RST $30");
 }
 void CPULR35902::OP_F8() {
     T+=12;
-    const auto value = bus->read<uint8_t>(PC.w);
+    const auto value = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     const bool carry = (SP.right + value) > 0xFF;
     const bool half = ((SP.w & 0xF) + (value & 0xF)) > 0xF;
@@ -1902,13 +1924,13 @@ void CPULR35902::OP_F9() {
 }
 void CPULR35902::OP_FA() {
     T += 16;
-    const auto addr = bus->read<uint16_t>(PC.w);
+    const auto addr = m_bus->read<uint16_t>(PC.w);
     PC.w += 2;
-    AF.left = bus->read<uint8_t>(addr);
+    AF.left = m_bus->read<uint8_t>(addr);
     if (m_debug) logInstruction("LD A, ($" + toHexString(addr) + ")");
 }
 void CPULR35902::OP_FB() {
-    eiPending = true;
+    m_eiPending = true;
     if (m_debug) logInstruction("EI");
 }
 void CPULR35902::OP_FC() {
@@ -1919,7 +1941,7 @@ void CPULR35902::OP_FD() {
 }
 void CPULR35902::OP_FE() {
     T += 8;
-    const auto value = bus->read<uint8_t>(PC.w);
+    const auto value = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     const bool carry = AF.left < value;
     const bool half = (AF.left & 0xF) < (value & 0xF);
@@ -1929,7 +1951,7 @@ void CPULR35902::OP_FE() {
 void CPULR35902::OP_FF() {
     T += 16;
     SP.w -= 2;
-    bus->write<uint16_t>(SP.w, PC.w);
+    m_bus->write<uint16_t>(SP.w, PC.w);
     PC.w = 0x00;
     if (m_debug) logInstruction("RST $38");
 }
@@ -1977,11 +1999,11 @@ void CPULR35902::PR_05() {
 }
 void CPULR35902::PR_06() {
     T += 16;
-    auto value = bus->read<uint8_t>(HL.w);
+    auto value = m_bus->read<uint8_t>(HL.w);
     const auto msb = (value & 0b10000000) >> 7;
     value = (value << 1) | msb;
     setFlags((value == 0), 0, 0, msb);
-    bus->write<uint8_t>(HL.w, value);
+    m_bus->write<uint8_t>(HL.w, value);
     if (m_debug) logInstruction("RLC (HL)");
 }
 void CPULR35902::PR_07() {
@@ -2035,11 +2057,11 @@ void CPULR35902::PR_0D() {
 }
 void CPULR35902::PR_0E() {
     T += 16;
-    auto value = bus->read<uint8_t>(HL.w);
+    auto value = m_bus->read<uint8_t>(HL.w);
     const auto lsb = (value & 0b00000001);
     value = (value >> 1) | (lsb << 7);
     setFlags((value == 0), 0, 0, lsb);
-    bus->write<uint8_t>(HL.w, value);
+    m_bus->write<uint8_t>(HL.w, value);
     if (m_debug) logInstruction("RRC (HL)");
 }
 void CPULR35902::PR_0F() {
@@ -2093,11 +2115,11 @@ void CPULR35902::PR_15() {
 }
 void CPULR35902::PR_16() {
     T += 16;
-    auto value = bus->read<uint8_t>(HL.w);
+    auto value = m_bus->read<uint8_t>(HL.w);
     const auto msb = (value & 0b10000000) >> 7;
     value = (value << 1) | static_cast<uint8_t>(getFlag(Flag::C));
     setFlags((value == 0), 0, 0, msb);
-    bus->write<uint8_t>(HL.w, value);
+    m_bus->write<uint8_t>(HL.w, value);
     if (m_debug) logInstruction("RL (HL)");
 }
 void CPULR35902::PR_17() {
@@ -2151,11 +2173,11 @@ void CPULR35902::PR_1D() {
 }
 void CPULR35902::PR_1E() {
     T += 16;
-    auto value = bus->read<uint8_t>(HL.w);
+    auto value = m_bus->read<uint8_t>(HL.w);
     const auto lsb = (value & 0b00000001);
     value = (value >> 1) | (static_cast<uint8_t>(getFlag(Flag::C)) << 7);
     setFlags((value == 0), 0, 0, lsb);
-    bus->write<uint8_t>(HL.w, value);
+    m_bus->write<uint8_t>(HL.w, value);
     if (m_debug) logInstruction("RR (HL)");
 }
 void CPULR35902::PR_1F() {
@@ -2209,11 +2231,11 @@ void CPULR35902::PR_25() {
 }
 void CPULR35902::PR_26() {
     T += 16;
-    auto value = bus->read<uint8_t>(HL.w);
+    auto value = m_bus->read<uint8_t>(HL.w);
     const auto msb = value & 0b10000000;
     value <<= 1;
     setFlags((value == 0), 0, 0, msb);
-    bus->write<uint8_t>(HL.w, value);
+    m_bus->write<uint8_t>(HL.w, value);
     if (m_debug) logInstruction("SLA (HL)");
 }
 void CPULR35902::PR_27() {
@@ -2273,12 +2295,12 @@ void CPULR35902::PR_2D() {
 }
 void CPULR35902::PR_2E() {
     T += 16;
-    auto value = bus->read<uint8_t>(HL.w);
+    auto value = m_bus->read<uint8_t>(HL.w);
     const auto msb = BC.left & 0b10000000;
     const auto lsb = value & 0b00000001;
     value >>= 1;
     setFlags((value == 0), 0, 0, lsb);
-    bus->write<uint8_t>(HL.w, value);
+    m_bus->write<uint8_t>(HL.w, value);
     if (m_debug) logInstruction("SRA (HL)");
 }
 void CPULR35902::PR_2F() {
@@ -2327,10 +2349,10 @@ void CPULR35902::PR_35() {
 }
 void CPULR35902::PR_36() {
     T += 16;
-    auto value = bus->read<uint8_t>(HL.w);
+    auto value = m_bus->read<uint8_t>(HL.w);
     value = (value << 4) | (value >> 4);
     setFlags((value == 0), 0, 0, 0);
-    bus->write<uint8_t>(HL.w, value);
+    m_bus->write<uint8_t>(HL.w, value);
     if (m_debug) logInstruction("SWAP (HL)");
 }
 void CPULR35902::PR_37() {
@@ -2383,11 +2405,11 @@ void CPULR35902::PR_3D() {
 }
 void CPULR35902::PR_3E() {
     T += 16;
-    auto value = bus->read<uint8_t>(HL.w);
+    auto value = m_bus->read<uint8_t>(HL.w);
     const auto lsb = value & 0b00000001;
     value >>= 1;
     setFlags((value == 0), 0, 0, lsb);
-    bus->write<uint8_t>(HL.w, value);
+    m_bus->write<uint8_t>(HL.w, value);
     if (m_debug) logInstruction("SRL (HL)");
 }
 void CPULR35902::PR_3F() {
@@ -2429,7 +2451,7 @@ void CPULR35902::PR_45() {
 }
 void CPULR35902::PR_46() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
+    const auto value = m_bus->read<uint8_t>(HL.w);
     setFlags(!(value & 0b00000001), 0, 1, -1);
     if (m_debug) logInstruction("BIT 0, (HL)");
 }
@@ -2471,7 +2493,7 @@ void CPULR35902::PR_4D() {
 }
 void CPULR35902::PR_4E() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
+    const auto value = m_bus->read<uint8_t>(HL.w);
     setFlags(!(value & 0b00000010), 0, 1, -1);
     if (m_debug) logInstruction("BIT 1, (HL)");
 }
@@ -2512,7 +2534,7 @@ void CPULR35902::PR_55() {
 }
 void CPULR35902::PR_56() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
+    const auto value = m_bus->read<uint8_t>(HL.w);
     setFlags(!(value & 0b00000100), 0, 1, -1);
     if (m_debug) logInstruction("BIT 2, (HL)");
 }
@@ -2553,7 +2575,7 @@ void CPULR35902::PR_5D() {
 }
 void CPULR35902::PR_5E() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
+    const auto value = m_bus->read<uint8_t>(HL.w);
     setFlags(!(value & 0b00001000), 0, 1, -1);
     if (m_debug) logInstruction("BIT 3, (HL)");
 }
@@ -2594,7 +2616,7 @@ void CPULR35902::PR_65() {
 }
 void CPULR35902::PR_66() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
+    const auto value = m_bus->read<uint8_t>(HL.w);
     setFlags(!(value & 0b00010000), 0, 1, -1);
     if (m_debug) logInstruction("BIT 4, (HL)");
 }
@@ -2635,7 +2657,7 @@ void CPULR35902::PR_6D() {
 }
 void CPULR35902::PR_6E() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
+    const auto value = m_bus->read<uint8_t>(HL.w);
     setFlags(!(value & 0b00100000), 0, 1, -1);
     if (m_debug) logInstruction("BIT 5, (HL)");
 }
@@ -2676,7 +2698,7 @@ void CPULR35902::PR_75() {
 }
 void CPULR35902::PR_76() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
+    const auto value = m_bus->read<uint8_t>(HL.w);
     setFlags(!(value & 0b01000000), 0, 1, -1);
     if (m_debug) logInstruction("BIT 6, (HL)");
 }
@@ -2717,7 +2739,7 @@ void CPULR35902::PR_7D() {
 }
 void CPULR35902::PR_7E() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
+    const auto value = m_bus->read<uint8_t>(HL.w);
     setFlags(!(value & 0b10000000), 0, 1, -1);
     if (m_debug) logInstruction("BIT 7, (HL)");
 }
@@ -2758,8 +2780,8 @@ void CPULR35902::PR_85() {
 }
 void CPULR35902::PR_86() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
-    bus->write<uint8_t>(HL.w, value & 0b11111110);
+    const auto value = m_bus->read<uint8_t>(HL.w);
+    m_bus->write<uint8_t>(HL.w, value & 0b11111110);
     if (m_debug) logInstruction("RES 0, HL");
 }
 void CPULR35902::PR_87() {
@@ -2799,8 +2821,8 @@ void CPULR35902::PR_8D() {
 }
 void CPULR35902::PR_8E() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
-    bus->write<uint8_t>(HL.w, value & 0b11111101);
+    const auto value = m_bus->read<uint8_t>(HL.w);
+    m_bus->write<uint8_t>(HL.w, value & 0b11111101);
     if (m_debug) logInstruction("RES 1, HL");
 }
 void CPULR35902::PR_8F() {
@@ -2840,8 +2862,8 @@ void CPULR35902::PR_95() {
 }
 void CPULR35902::PR_96() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
-    bus->write<uint8_t>(HL.w, value & 0b11111011);
+    const auto value = m_bus->read<uint8_t>(HL.w);
+    m_bus->write<uint8_t>(HL.w, value & 0b11111011);
     if (m_debug) logInstruction("RES 2, HL");
 }
 void CPULR35902::PR_97() {
@@ -2881,8 +2903,8 @@ void CPULR35902::PR_9D() {
 }
 void CPULR35902::PR_9E() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
-    bus->write<uint8_t>(HL.w, value & 0b11110111);
+    const auto value = m_bus->read<uint8_t>(HL.w);
+    m_bus->write<uint8_t>(HL.w, value & 0b11110111);
     if (m_debug) logInstruction("RES 3, HL");
 }
 void CPULR35902::PR_9F() {
@@ -2922,8 +2944,8 @@ void CPULR35902::PR_A5() {
 }
 void CPULR35902::PR_A6() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
-    bus->write<uint8_t>(HL.w, value & 0b11101111);
+    const auto value = m_bus->read<uint8_t>(HL.w);
+    m_bus->write<uint8_t>(HL.w, value & 0b11101111);
     if (m_debug) logInstruction("RES 4, HL");
 }
 void CPULR35902::PR_A7() {
@@ -2963,8 +2985,8 @@ void CPULR35902::PR_AD() {
 }
 void CPULR35902::PR_AE() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
-    bus->write<uint8_t>(HL.w, value & 0b11011111);
+    const auto value = m_bus->read<uint8_t>(HL.w);
+    m_bus->write<uint8_t>(HL.w, value & 0b11011111);
     if (m_debug) logInstruction("RES 5, HL");
 }
 void CPULR35902::PR_AF() {
@@ -3004,8 +3026,8 @@ void CPULR35902::PR_B5() {
 }
 void CPULR35902::PR_B6() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
-    bus->write<uint8_t>(HL.w, value & 0b10111111);
+    const auto value = m_bus->read<uint8_t>(HL.w);
+    m_bus->write<uint8_t>(HL.w, value & 0b10111111);
     if (m_debug) logInstruction("RES 6, HL");
 }
 void CPULR35902::PR_B7() {
@@ -3045,8 +3067,8 @@ void CPULR35902::PR_BD() {
 }
 void CPULR35902::PR_BE() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
-    bus->write<uint8_t>(HL.w, value & 0b01111111);
+    const auto value = m_bus->read<uint8_t>(HL.w);
+    m_bus->write<uint8_t>(HL.w, value & 0b01111111);
     if (m_debug) logInstruction("RES 7, HL");
 }
 void CPULR35902::PR_BF() {
@@ -3086,8 +3108,8 @@ void CPULR35902::PR_C5() {
 }
 void CPULR35902::PR_C6() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
-    bus->write<uint8_t>(HL.w, value | 0b00000001);
+    const auto value = m_bus->read<uint8_t>(HL.w);
+    m_bus->write<uint8_t>(HL.w, value | 0b00000001);
     if (m_debug) logInstruction("SET 0, HL");
 }
 void CPULR35902::PR_C7() {
@@ -3127,8 +3149,8 @@ void CPULR35902::PR_CD() {
 }
 void CPULR35902::PR_CE() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
-    bus->write<uint8_t>(HL.w, value | 0b00000010);
+    const auto value = m_bus->read<uint8_t>(HL.w);
+    m_bus->write<uint8_t>(HL.w, value | 0b00000010);
     if (m_debug) logInstruction("SET 1, HL");
 }
 void CPULR35902::PR_CF() {
@@ -3168,8 +3190,8 @@ void CPULR35902::PR_D5() {
 }
 void CPULR35902::PR_D6() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
-    bus->write<uint8_t>(HL.w, value | 0b00000100);
+    const auto value = m_bus->read<uint8_t>(HL.w);
+    m_bus->write<uint8_t>(HL.w, value | 0b00000100);
     if (m_debug) logInstruction("SET 2, HL");
 }
 void CPULR35902::PR_D7() {
@@ -3209,8 +3231,8 @@ void CPULR35902::PR_DD() {
 }
 void CPULR35902::PR_DE() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
-    bus->write<uint8_t>(HL.w, value | 0b00001000);
+    const auto value = m_bus->read<uint8_t>(HL.w);
+    m_bus->write<uint8_t>(HL.w, value | 0b00001000);
     if (m_debug) logInstruction("SET 3, HL");
 }
 void CPULR35902::PR_DF() {
@@ -3250,8 +3272,8 @@ void CPULR35902::PR_E5() {
 }
 void CPULR35902::PR_E6() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
-    bus->write<uint8_t>(HL.w, value | 0b00010000);
+    const auto value = m_bus->read<uint8_t>(HL.w);
+    m_bus->write<uint8_t>(HL.w, value | 0b00010000);
     if (m_debug) logInstruction("SET 4, HL");
 }
 void CPULR35902::PR_E7() {
@@ -3291,8 +3313,8 @@ void CPULR35902::PR_ED() {
 }
 void CPULR35902::PR_EE() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
-    bus->write<uint8_t>(HL.w, value | 0b00100000);
+    const auto value = m_bus->read<uint8_t>(HL.w);
+    m_bus->write<uint8_t>(HL.w, value | 0b00100000);
     if (m_debug) logInstruction("SET 5, HL");
 }
 void CPULR35902::PR_EF() {
@@ -3332,8 +3354,8 @@ void CPULR35902::PR_F5() {
 }
 void CPULR35902::PR_F6() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
-    bus->write<uint8_t>(HL.w, value | 0b01000000);
+    const auto value = m_bus->read<uint8_t>(HL.w);
+    m_bus->write<uint8_t>(HL.w, value | 0b01000000);
     if (m_debug) logInstruction("SET 6, HL");
 }
 void CPULR35902::PR_F7() {
@@ -3373,8 +3395,8 @@ void CPULR35902::PR_FD() {
 }
 void CPULR35902::PR_FE() {
     T += 8;
-    const auto value = bus->read<uint8_t>(HL.w);
-    bus->write<uint8_t>(HL.w, value | 0b10000000);
+    const auto value = m_bus->read<uint8_t>(HL.w);
+    m_bus->write<uint8_t>(HL.w, value | 0b10000000);
     if (m_debug) logInstruction("SET 7, HL");
 }
 void CPULR35902::PR_FF() {
@@ -3384,518 +3406,518 @@ void CPULR35902::PR_FF() {
 }
 
 void CPULR35902::initOpcodeHandlers() {
-    opcodeHandler[0x00] = std::bind(&CPULR35902::OP_00, this);
-    opcodeHandler[0x01] = std::bind(&CPULR35902::OP_01, this);
-    opcodeHandler[0x02] = std::bind(&CPULR35902::OP_02, this);
-    opcodeHandler[0x03] = std::bind(&CPULR35902::OP_03, this);
-    opcodeHandler[0x04] = std::bind(&CPULR35902::OP_04, this);
-    opcodeHandler[0x05] = std::bind(&CPULR35902::OP_05, this);
-    opcodeHandler[0x06] = std::bind(&CPULR35902::OP_06, this);
-    opcodeHandler[0x07] = std::bind(&CPULR35902::OP_07, this);
-    opcodeHandler[0x08] = std::bind(&CPULR35902::OP_08, this);
-    opcodeHandler[0x09] = std::bind(&CPULR35902::OP_09, this);
-    opcodeHandler[0x0A] = std::bind(&CPULR35902::OP_0A, this);
-    opcodeHandler[0x0B] = std::bind(&CPULR35902::OP_0B, this);
-    opcodeHandler[0x0C] = std::bind(&CPULR35902::OP_0C, this);
-    opcodeHandler[0x0D] = std::bind(&CPULR35902::OP_0D, this);
-    opcodeHandler[0x0E] = std::bind(&CPULR35902::OP_0E, this);
-    opcodeHandler[0x0F] = std::bind(&CPULR35902::OP_0F, this);
-    opcodeHandler[0x10] = std::bind(&CPULR35902::OP_10, this);
-    opcodeHandler[0x11] = std::bind(&CPULR35902::OP_11, this);
-    opcodeHandler[0x12] = std::bind(&CPULR35902::OP_12, this);
-    opcodeHandler[0x13] = std::bind(&CPULR35902::OP_13, this);
-    opcodeHandler[0x14] = std::bind(&CPULR35902::OP_14, this);
-    opcodeHandler[0x15] = std::bind(&CPULR35902::OP_15, this);
-    opcodeHandler[0x16] = std::bind(&CPULR35902::OP_16, this);
-    opcodeHandler[0x17] = std::bind(&CPULR35902::OP_17, this);
-    opcodeHandler[0x18] = std::bind(&CPULR35902::OP_18, this);
-    opcodeHandler[0x19] = std::bind(&CPULR35902::OP_19, this);
-    opcodeHandler[0x1A] = std::bind(&CPULR35902::OP_1A, this);
-    opcodeHandler[0x1B] = std::bind(&CPULR35902::OP_1B, this);
-    opcodeHandler[0x1C] = std::bind(&CPULR35902::OP_1C, this);
-    opcodeHandler[0x1D] = std::bind(&CPULR35902::OP_1D, this);
-    opcodeHandler[0x1E] = std::bind(&CPULR35902::OP_1E, this);
-    opcodeHandler[0x1F] = std::bind(&CPULR35902::OP_1F, this);
-    opcodeHandler[0x20] = std::bind(&CPULR35902::OP_20, this);
-    opcodeHandler[0x21] = std::bind(&CPULR35902::OP_21, this);
-    opcodeHandler[0x22] = std::bind(&CPULR35902::OP_22, this);
-    opcodeHandler[0x23] = std::bind(&CPULR35902::OP_23, this);
-    opcodeHandler[0x24] = std::bind(&CPULR35902::OP_24, this);
-    opcodeHandler[0x25] = std::bind(&CPULR35902::OP_25, this);
-    opcodeHandler[0x26] = std::bind(&CPULR35902::OP_26, this);
-    opcodeHandler[0x27] = std::bind(&CPULR35902::OP_27, this);
-    opcodeHandler[0x28] = std::bind(&CPULR35902::OP_28, this);
-    opcodeHandler[0x29] = std::bind(&CPULR35902::OP_29, this);
-    opcodeHandler[0x2A] = std::bind(&CPULR35902::OP_2A, this);
-    opcodeHandler[0x2B] = std::bind(&CPULR35902::OP_2B, this);
-    opcodeHandler[0x2C] = std::bind(&CPULR35902::OP_2C, this);
-    opcodeHandler[0x2D] = std::bind(&CPULR35902::OP_2D, this);
-    opcodeHandler[0x2E] = std::bind(&CPULR35902::OP_2E, this);
-    opcodeHandler[0x2F] = std::bind(&CPULR35902::OP_2F, this);
-    opcodeHandler[0x30] = std::bind(&CPULR35902::OP_30, this);
-    opcodeHandler[0x31] = std::bind(&CPULR35902::OP_31, this);
-    opcodeHandler[0x32] = std::bind(&CPULR35902::OP_32, this);
-    opcodeHandler[0x33] = std::bind(&CPULR35902::OP_33, this);
-    opcodeHandler[0x34] = std::bind(&CPULR35902::OP_34, this);
-    opcodeHandler[0x35] = std::bind(&CPULR35902::OP_35, this);
-    opcodeHandler[0x36] = std::bind(&CPULR35902::OP_36, this);
-    opcodeHandler[0x37] = std::bind(&CPULR35902::OP_37, this);
-    opcodeHandler[0x38] = std::bind(&CPULR35902::OP_38, this);
-    opcodeHandler[0x39] = std::bind(&CPULR35902::OP_39, this);
-    opcodeHandler[0x3A] = std::bind(&CPULR35902::OP_3A, this);
-    opcodeHandler[0x3B] = std::bind(&CPULR35902::OP_3B, this);
-    opcodeHandler[0x3C] = std::bind(&CPULR35902::OP_3C, this);
-    opcodeHandler[0x3D] = std::bind(&CPULR35902::OP_3D, this);
-    opcodeHandler[0x3E] = std::bind(&CPULR35902::OP_3E, this);
-    opcodeHandler[0x3F] = std::bind(&CPULR35902::OP_3F, this);
-    opcodeHandler[0x40] = std::bind(&CPULR35902::OP_40, this);
-    opcodeHandler[0x41] = std::bind(&CPULR35902::OP_41, this);
-    opcodeHandler[0x42] = std::bind(&CPULR35902::OP_42, this);
-    opcodeHandler[0x43] = std::bind(&CPULR35902::OP_43, this);
-    opcodeHandler[0x44] = std::bind(&CPULR35902::OP_44, this);
-    opcodeHandler[0x45] = std::bind(&CPULR35902::OP_45, this);
-    opcodeHandler[0x46] = std::bind(&CPULR35902::OP_46, this);
-    opcodeHandler[0x47] = std::bind(&CPULR35902::OP_47, this);
-    opcodeHandler[0x48] = std::bind(&CPULR35902::OP_48, this);
-    opcodeHandler[0x49] = std::bind(&CPULR35902::OP_49, this);
-    opcodeHandler[0x4A] = std::bind(&CPULR35902::OP_4A, this);
-    opcodeHandler[0x4B] = std::bind(&CPULR35902::OP_4B, this);
-    opcodeHandler[0x4C] = std::bind(&CPULR35902::OP_4C, this);
-    opcodeHandler[0x4D] = std::bind(&CPULR35902::OP_4D, this);
-    opcodeHandler[0x4E] = std::bind(&CPULR35902::OP_4E, this);
-    opcodeHandler[0x4F] = std::bind(&CPULR35902::OP_4F, this);
-    opcodeHandler[0x50] = std::bind(&CPULR35902::OP_50, this);
-    opcodeHandler[0x51] = std::bind(&CPULR35902::OP_51, this);
-    opcodeHandler[0x52] = std::bind(&CPULR35902::OP_52, this);
-    opcodeHandler[0x53] = std::bind(&CPULR35902::OP_53, this);
-    opcodeHandler[0x54] = std::bind(&CPULR35902::OP_54, this);
-    opcodeHandler[0x55] = std::bind(&CPULR35902::OP_55, this);
-    opcodeHandler[0x56] = std::bind(&CPULR35902::OP_56, this);
-    opcodeHandler[0x57] = std::bind(&CPULR35902::OP_57, this);
-    opcodeHandler[0x58] = std::bind(&CPULR35902::OP_58, this);
-    opcodeHandler[0x59] = std::bind(&CPULR35902::OP_59, this);
-    opcodeHandler[0x5A] = std::bind(&CPULR35902::OP_5A, this);
-    opcodeHandler[0x5B] = std::bind(&CPULR35902::OP_5B, this);
-    opcodeHandler[0x5C] = std::bind(&CPULR35902::OP_5C, this);
-    opcodeHandler[0x5D] = std::bind(&CPULR35902::OP_5D, this);
-    opcodeHandler[0x5E] = std::bind(&CPULR35902::OP_5E, this);
-    opcodeHandler[0x5F] = std::bind(&CPULR35902::OP_5F, this);
-    opcodeHandler[0x60] = std::bind(&CPULR35902::OP_60, this);
-    opcodeHandler[0x61] = std::bind(&CPULR35902::OP_61, this);
-    opcodeHandler[0x62] = std::bind(&CPULR35902::OP_62, this);
-    opcodeHandler[0x63] = std::bind(&CPULR35902::OP_63, this);
-    opcodeHandler[0x64] = std::bind(&CPULR35902::OP_64, this);
-    opcodeHandler[0x65] = std::bind(&CPULR35902::OP_65, this);
-    opcodeHandler[0x66] = std::bind(&CPULR35902::OP_66, this);
-    opcodeHandler[0x67] = std::bind(&CPULR35902::OP_67, this);
-    opcodeHandler[0x68] = std::bind(&CPULR35902::OP_68, this);
-    opcodeHandler[0x69] = std::bind(&CPULR35902::OP_69, this);
-    opcodeHandler[0x6A] = std::bind(&CPULR35902::OP_6A, this);
-    opcodeHandler[0x6B] = std::bind(&CPULR35902::OP_6B, this);
-    opcodeHandler[0x6C] = std::bind(&CPULR35902::OP_6C, this);
-    opcodeHandler[0x6D] = std::bind(&CPULR35902::OP_6D, this);
-    opcodeHandler[0x6E] = std::bind(&CPULR35902::OP_6E, this);
-    opcodeHandler[0x6F] = std::bind(&CPULR35902::OP_6F, this);
-    opcodeHandler[0x70] = std::bind(&CPULR35902::OP_70, this);
-    opcodeHandler[0x71] = std::bind(&CPULR35902::OP_71, this);
-    opcodeHandler[0x72] = std::bind(&CPULR35902::OP_72, this);
-    opcodeHandler[0x73] = std::bind(&CPULR35902::OP_73, this);
-    opcodeHandler[0x74] = std::bind(&CPULR35902::OP_74, this);
-    opcodeHandler[0x75] = std::bind(&CPULR35902::OP_75, this);
-    opcodeHandler[0x76] = std::bind(&CPULR35902::OP_76, this);
-    opcodeHandler[0x77] = std::bind(&CPULR35902::OP_77, this);
-    opcodeHandler[0x78] = std::bind(&CPULR35902::OP_78, this);
-    opcodeHandler[0x79] = std::bind(&CPULR35902::OP_79, this);
-    opcodeHandler[0x7A] = std::bind(&CPULR35902::OP_7A, this);
-    opcodeHandler[0x7B] = std::bind(&CPULR35902::OP_7B, this);
-    opcodeHandler[0x7C] = std::bind(&CPULR35902::OP_7C, this);
-    opcodeHandler[0x7D] = std::bind(&CPULR35902::OP_7D, this);
-    opcodeHandler[0x7E] = std::bind(&CPULR35902::OP_7E, this);
-    opcodeHandler[0x7F] = std::bind(&CPULR35902::OP_7F, this);
-    opcodeHandler[0x80] = std::bind(&CPULR35902::OP_80, this);
-    opcodeHandler[0x81] = std::bind(&CPULR35902::OP_81, this);
-    opcodeHandler[0x82] = std::bind(&CPULR35902::OP_82, this);
-    opcodeHandler[0x83] = std::bind(&CPULR35902::OP_83, this);
-    opcodeHandler[0x84] = std::bind(&CPULR35902::OP_84, this);
-    opcodeHandler[0x85] = std::bind(&CPULR35902::OP_85, this);
-    opcodeHandler[0x86] = std::bind(&CPULR35902::OP_86, this);
-    opcodeHandler[0x87] = std::bind(&CPULR35902::OP_87, this);
-    opcodeHandler[0x88] = std::bind(&CPULR35902::OP_88, this);
-    opcodeHandler[0x89] = std::bind(&CPULR35902::OP_89, this);
-    opcodeHandler[0x8A] = std::bind(&CPULR35902::OP_8A, this);
-    opcodeHandler[0x8B] = std::bind(&CPULR35902::OP_8B, this);
-    opcodeHandler[0x8C] = std::bind(&CPULR35902::OP_8C, this);
-    opcodeHandler[0x8D] = std::bind(&CPULR35902::OP_8D, this);
-    opcodeHandler[0x8E] = std::bind(&CPULR35902::OP_8E, this);
-    opcodeHandler[0x8F] = std::bind(&CPULR35902::OP_8F, this);
-    opcodeHandler[0x90] = std::bind(&CPULR35902::OP_90, this);
-    opcodeHandler[0x91] = std::bind(&CPULR35902::OP_91, this);
-    opcodeHandler[0x92] = std::bind(&CPULR35902::OP_92, this);
-    opcodeHandler[0x93] = std::bind(&CPULR35902::OP_93, this);
-    opcodeHandler[0x94] = std::bind(&CPULR35902::OP_94, this);
-    opcodeHandler[0x95] = std::bind(&CPULR35902::OP_95, this);
-    opcodeHandler[0x96] = std::bind(&CPULR35902::OP_96, this);
-    opcodeHandler[0x97] = std::bind(&CPULR35902::OP_97, this);
-    opcodeHandler[0x98] = std::bind(&CPULR35902::OP_98, this);
-    opcodeHandler[0x99] = std::bind(&CPULR35902::OP_99, this);
-    opcodeHandler[0x9A] = std::bind(&CPULR35902::OP_9A, this);
-    opcodeHandler[0x9B] = std::bind(&CPULR35902::OP_9B, this);
-    opcodeHandler[0x9C] = std::bind(&CPULR35902::OP_9C, this);
-    opcodeHandler[0x9D] = std::bind(&CPULR35902::OP_9D, this);
-    opcodeHandler[0x9E] = std::bind(&CPULR35902::OP_9E, this);
-    opcodeHandler[0x9F] = std::bind(&CPULR35902::OP_9F, this);
-    opcodeHandler[0xA0] = std::bind(&CPULR35902::OP_A0, this);
-    opcodeHandler[0xA1] = std::bind(&CPULR35902::OP_A1, this);
-    opcodeHandler[0xA2] = std::bind(&CPULR35902::OP_A2, this);
-    opcodeHandler[0xA3] = std::bind(&CPULR35902::OP_A3, this);
-    opcodeHandler[0xA4] = std::bind(&CPULR35902::OP_A4, this);
-    opcodeHandler[0xA5] = std::bind(&CPULR35902::OP_A5, this);
-    opcodeHandler[0xA6] = std::bind(&CPULR35902::OP_A6, this);
-    opcodeHandler[0xA7] = std::bind(&CPULR35902::OP_A7, this);
-    opcodeHandler[0xA8] = std::bind(&CPULR35902::OP_A8, this);
-    opcodeHandler[0xA9] = std::bind(&CPULR35902::OP_A9, this);
-    opcodeHandler[0xAA] = std::bind(&CPULR35902::OP_AA, this);
-    opcodeHandler[0xAB] = std::bind(&CPULR35902::OP_AB, this);
-    opcodeHandler[0xAC] = std::bind(&CPULR35902::OP_AC, this);
-    opcodeHandler[0xAD] = std::bind(&CPULR35902::OP_AD, this);
-    opcodeHandler[0xAE] = std::bind(&CPULR35902::OP_AE, this);
-    opcodeHandler[0xAF] = std::bind(&CPULR35902::OP_AF, this);
-    opcodeHandler[0xB0] = std::bind(&CPULR35902::OP_B0, this);
-    opcodeHandler[0xB1] = std::bind(&CPULR35902::OP_B1, this);
-    opcodeHandler[0xB2] = std::bind(&CPULR35902::OP_B2, this);
-    opcodeHandler[0xB3] = std::bind(&CPULR35902::OP_B3, this);
-    opcodeHandler[0xB4] = std::bind(&CPULR35902::OP_B4, this);
-    opcodeHandler[0xB5] = std::bind(&CPULR35902::OP_B5, this);
-    opcodeHandler[0xB6] = std::bind(&CPULR35902::OP_B6, this);
-    opcodeHandler[0xB7] = std::bind(&CPULR35902::OP_B7, this);
-    opcodeHandler[0xB8] = std::bind(&CPULR35902::OP_B8, this);
-    opcodeHandler[0xB9] = std::bind(&CPULR35902::OP_B9, this);
-    opcodeHandler[0xBA] = std::bind(&CPULR35902::OP_BA, this);
-    opcodeHandler[0xBB] = std::bind(&CPULR35902::OP_BB, this);
-    opcodeHandler[0xBC] = std::bind(&CPULR35902::OP_BC, this);
-    opcodeHandler[0xBD] = std::bind(&CPULR35902::OP_BD, this);
-    opcodeHandler[0xBE] = std::bind(&CPULR35902::OP_BE, this);
-    opcodeHandler[0xBF] = std::bind(&CPULR35902::OP_BF, this);
-    opcodeHandler[0xC0] = std::bind(&CPULR35902::OP_C0, this);
-    opcodeHandler[0xC1] = std::bind(&CPULR35902::OP_C1, this);
-    opcodeHandler[0xC2] = std::bind(&CPULR35902::OP_C2, this);
-    opcodeHandler[0xC3] = std::bind(&CPULR35902::OP_C3, this);
-    opcodeHandler[0xC4] = std::bind(&CPULR35902::OP_C4, this);
-    opcodeHandler[0xC5] = std::bind(&CPULR35902::OP_C5, this);
-    opcodeHandler[0xC6] = std::bind(&CPULR35902::OP_C6, this);
-    opcodeHandler[0xC7] = std::bind(&CPULR35902::OP_C7, this);
-    opcodeHandler[0xC8] = std::bind(&CPULR35902::OP_C8, this);
-    opcodeHandler[0xC9] = std::bind(&CPULR35902::OP_C9, this);
-    opcodeHandler[0xCA] = std::bind(&CPULR35902::OP_CA, this);
-    opcodeHandler[0xCB] = std::bind(&CPULR35902::OP_CB, this);
-    opcodeHandler[0xCC] = std::bind(&CPULR35902::OP_CC, this);
-    opcodeHandler[0xCD] = std::bind(&CPULR35902::OP_CD, this);
-    opcodeHandler[0xCE] = std::bind(&CPULR35902::OP_CE, this);
-    opcodeHandler[0xCF] = std::bind(&CPULR35902::OP_CF, this);
-    opcodeHandler[0xD0] = std::bind(&CPULR35902::OP_D0, this);
-    opcodeHandler[0xD1] = std::bind(&CPULR35902::OP_D1, this);
-    opcodeHandler[0xD2] = std::bind(&CPULR35902::OP_D2, this);
-    opcodeHandler[0xD3] = std::bind(&CPULR35902::OP_D3, this);
-    opcodeHandler[0xD4] = std::bind(&CPULR35902::OP_D4, this);
-    opcodeHandler[0xD5] = std::bind(&CPULR35902::OP_D5, this);
-    opcodeHandler[0xD6] = std::bind(&CPULR35902::OP_D6, this);
-    opcodeHandler[0xD7] = std::bind(&CPULR35902::OP_D7, this);
-    opcodeHandler[0xD8] = std::bind(&CPULR35902::OP_D8, this);
-    opcodeHandler[0xD9] = std::bind(&CPULR35902::OP_D9, this);
-    opcodeHandler[0xDA] = std::bind(&CPULR35902::OP_DA, this);
-    opcodeHandler[0xDB] = std::bind(&CPULR35902::OP_DB, this);
-    opcodeHandler[0xDC] = std::bind(&CPULR35902::OP_DC, this);
-    opcodeHandler[0xDD] = std::bind(&CPULR35902::OP_DD, this);
-    opcodeHandler[0xDE] = std::bind(&CPULR35902::OP_DE, this);
-    opcodeHandler[0xDF] = std::bind(&CPULR35902::OP_DF, this);
-    opcodeHandler[0xE0] = std::bind(&CPULR35902::OP_E0, this);
-    opcodeHandler[0xE1] = std::bind(&CPULR35902::OP_E1, this);
-    opcodeHandler[0xE2] = std::bind(&CPULR35902::OP_E2, this);
-    opcodeHandler[0xE3] = std::bind(&CPULR35902::OP_E3, this);
-    opcodeHandler[0xE4] = std::bind(&CPULR35902::OP_E4, this);
-    opcodeHandler[0xE5] = std::bind(&CPULR35902::OP_E5, this);
-    opcodeHandler[0xE6] = std::bind(&CPULR35902::OP_E6, this);
-    opcodeHandler[0xE7] = std::bind(&CPULR35902::OP_E7, this);
-    opcodeHandler[0xE8] = std::bind(&CPULR35902::OP_E8, this);
-    opcodeHandler[0xE9] = std::bind(&CPULR35902::OP_E9, this);
-    opcodeHandler[0xEA] = std::bind(&CPULR35902::OP_EA, this);
-    opcodeHandler[0xEB] = std::bind(&CPULR35902::OP_EB, this);
-    opcodeHandler[0xEC] = std::bind(&CPULR35902::OP_EC, this);
-    opcodeHandler[0xED] = std::bind(&CPULR35902::OP_ED, this);
-    opcodeHandler[0xEE] = std::bind(&CPULR35902::OP_EE, this);
-    opcodeHandler[0xEF] = std::bind(&CPULR35902::OP_EF, this);
-    opcodeHandler[0xF0] = std::bind(&CPULR35902::OP_F0, this);
-    opcodeHandler[0xF1] = std::bind(&CPULR35902::OP_F1, this);
-    opcodeHandler[0xF2] = std::bind(&CPULR35902::OP_F2, this);
-    opcodeHandler[0xF3] = std::bind(&CPULR35902::OP_F3, this);
-    opcodeHandler[0xF4] = std::bind(&CPULR35902::OP_F4, this);
-    opcodeHandler[0xF5] = std::bind(&CPULR35902::OP_F5, this);
-    opcodeHandler[0xF6] = std::bind(&CPULR35902::OP_F6, this);
-    opcodeHandler[0xF7] = std::bind(&CPULR35902::OP_F7, this);
-    opcodeHandler[0xF8] = std::bind(&CPULR35902::OP_F8, this);
-    opcodeHandler[0xF9] = std::bind(&CPULR35902::OP_F9, this);
-    opcodeHandler[0xFA] = std::bind(&CPULR35902::OP_FA, this);
-    opcodeHandler[0xFB] = std::bind(&CPULR35902::OP_FB, this);
-    opcodeHandler[0xFC] = std::bind(&CPULR35902::OP_FC, this);
-    opcodeHandler[0xFD] = std::bind(&CPULR35902::OP_FD, this);
-    opcodeHandler[0xFE] = std::bind(&CPULR35902::OP_FE, this);
-    opcodeHandler[0xFF] = std::bind(&CPULR35902::OP_FF, this);
+    m_opcodeHandler[0x00] = std::bind(&CPULR35902::OP_00, this);
+    m_opcodeHandler[0x01] = std::bind(&CPULR35902::OP_01, this);
+    m_opcodeHandler[0x02] = std::bind(&CPULR35902::OP_02, this);
+    m_opcodeHandler[0x03] = std::bind(&CPULR35902::OP_03, this);
+    m_opcodeHandler[0x04] = std::bind(&CPULR35902::OP_04, this);
+    m_opcodeHandler[0x05] = std::bind(&CPULR35902::OP_05, this);
+    m_opcodeHandler[0x06] = std::bind(&CPULR35902::OP_06, this);
+    m_opcodeHandler[0x07] = std::bind(&CPULR35902::OP_07, this);
+    m_opcodeHandler[0x08] = std::bind(&CPULR35902::OP_08, this);
+    m_opcodeHandler[0x09] = std::bind(&CPULR35902::OP_09, this);
+    m_opcodeHandler[0x0A] = std::bind(&CPULR35902::OP_0A, this);
+    m_opcodeHandler[0x0B] = std::bind(&CPULR35902::OP_0B, this);
+    m_opcodeHandler[0x0C] = std::bind(&CPULR35902::OP_0C, this);
+    m_opcodeHandler[0x0D] = std::bind(&CPULR35902::OP_0D, this);
+    m_opcodeHandler[0x0E] = std::bind(&CPULR35902::OP_0E, this);
+    m_opcodeHandler[0x0F] = std::bind(&CPULR35902::OP_0F, this);
+    m_opcodeHandler[0x10] = std::bind(&CPULR35902::OP_10, this);
+    m_opcodeHandler[0x11] = std::bind(&CPULR35902::OP_11, this);
+    m_opcodeHandler[0x12] = std::bind(&CPULR35902::OP_12, this);
+    m_opcodeHandler[0x13] = std::bind(&CPULR35902::OP_13, this);
+    m_opcodeHandler[0x14] = std::bind(&CPULR35902::OP_14, this);
+    m_opcodeHandler[0x15] = std::bind(&CPULR35902::OP_15, this);
+    m_opcodeHandler[0x16] = std::bind(&CPULR35902::OP_16, this);
+    m_opcodeHandler[0x17] = std::bind(&CPULR35902::OP_17, this);
+    m_opcodeHandler[0x18] = std::bind(&CPULR35902::OP_18, this);
+    m_opcodeHandler[0x19] = std::bind(&CPULR35902::OP_19, this);
+    m_opcodeHandler[0x1A] = std::bind(&CPULR35902::OP_1A, this);
+    m_opcodeHandler[0x1B] = std::bind(&CPULR35902::OP_1B, this);
+    m_opcodeHandler[0x1C] = std::bind(&CPULR35902::OP_1C, this);
+    m_opcodeHandler[0x1D] = std::bind(&CPULR35902::OP_1D, this);
+    m_opcodeHandler[0x1E] = std::bind(&CPULR35902::OP_1E, this);
+    m_opcodeHandler[0x1F] = std::bind(&CPULR35902::OP_1F, this);
+    m_opcodeHandler[0x20] = std::bind(&CPULR35902::OP_20, this);
+    m_opcodeHandler[0x21] = std::bind(&CPULR35902::OP_21, this);
+    m_opcodeHandler[0x22] = std::bind(&CPULR35902::OP_22, this);
+    m_opcodeHandler[0x23] = std::bind(&CPULR35902::OP_23, this);
+    m_opcodeHandler[0x24] = std::bind(&CPULR35902::OP_24, this);
+    m_opcodeHandler[0x25] = std::bind(&CPULR35902::OP_25, this);
+    m_opcodeHandler[0x26] = std::bind(&CPULR35902::OP_26, this);
+    m_opcodeHandler[0x27] = std::bind(&CPULR35902::OP_27, this);
+    m_opcodeHandler[0x28] = std::bind(&CPULR35902::OP_28, this);
+    m_opcodeHandler[0x29] = std::bind(&CPULR35902::OP_29, this);
+    m_opcodeHandler[0x2A] = std::bind(&CPULR35902::OP_2A, this);
+    m_opcodeHandler[0x2B] = std::bind(&CPULR35902::OP_2B, this);
+    m_opcodeHandler[0x2C] = std::bind(&CPULR35902::OP_2C, this);
+    m_opcodeHandler[0x2D] = std::bind(&CPULR35902::OP_2D, this);
+    m_opcodeHandler[0x2E] = std::bind(&CPULR35902::OP_2E, this);
+    m_opcodeHandler[0x2F] = std::bind(&CPULR35902::OP_2F, this);
+    m_opcodeHandler[0x30] = std::bind(&CPULR35902::OP_30, this);
+    m_opcodeHandler[0x31] = std::bind(&CPULR35902::OP_31, this);
+    m_opcodeHandler[0x32] = std::bind(&CPULR35902::OP_32, this);
+    m_opcodeHandler[0x33] = std::bind(&CPULR35902::OP_33, this);
+    m_opcodeHandler[0x34] = std::bind(&CPULR35902::OP_34, this);
+    m_opcodeHandler[0x35] = std::bind(&CPULR35902::OP_35, this);
+    m_opcodeHandler[0x36] = std::bind(&CPULR35902::OP_36, this);
+    m_opcodeHandler[0x37] = std::bind(&CPULR35902::OP_37, this);
+    m_opcodeHandler[0x38] = std::bind(&CPULR35902::OP_38, this);
+    m_opcodeHandler[0x39] = std::bind(&CPULR35902::OP_39, this);
+    m_opcodeHandler[0x3A] = std::bind(&CPULR35902::OP_3A, this);
+    m_opcodeHandler[0x3B] = std::bind(&CPULR35902::OP_3B, this);
+    m_opcodeHandler[0x3C] = std::bind(&CPULR35902::OP_3C, this);
+    m_opcodeHandler[0x3D] = std::bind(&CPULR35902::OP_3D, this);
+    m_opcodeHandler[0x3E] = std::bind(&CPULR35902::OP_3E, this);
+    m_opcodeHandler[0x3F] = std::bind(&CPULR35902::OP_3F, this);
+    m_opcodeHandler[0x40] = std::bind(&CPULR35902::OP_40, this);
+    m_opcodeHandler[0x41] = std::bind(&CPULR35902::OP_41, this);
+    m_opcodeHandler[0x42] = std::bind(&CPULR35902::OP_42, this);
+    m_opcodeHandler[0x43] = std::bind(&CPULR35902::OP_43, this);
+    m_opcodeHandler[0x44] = std::bind(&CPULR35902::OP_44, this);
+    m_opcodeHandler[0x45] = std::bind(&CPULR35902::OP_45, this);
+    m_opcodeHandler[0x46] = std::bind(&CPULR35902::OP_46, this);
+    m_opcodeHandler[0x47] = std::bind(&CPULR35902::OP_47, this);
+    m_opcodeHandler[0x48] = std::bind(&CPULR35902::OP_48, this);
+    m_opcodeHandler[0x49] = std::bind(&CPULR35902::OP_49, this);
+    m_opcodeHandler[0x4A] = std::bind(&CPULR35902::OP_4A, this);
+    m_opcodeHandler[0x4B] = std::bind(&CPULR35902::OP_4B, this);
+    m_opcodeHandler[0x4C] = std::bind(&CPULR35902::OP_4C, this);
+    m_opcodeHandler[0x4D] = std::bind(&CPULR35902::OP_4D, this);
+    m_opcodeHandler[0x4E] = std::bind(&CPULR35902::OP_4E, this);
+    m_opcodeHandler[0x4F] = std::bind(&CPULR35902::OP_4F, this);
+    m_opcodeHandler[0x50] = std::bind(&CPULR35902::OP_50, this);
+    m_opcodeHandler[0x51] = std::bind(&CPULR35902::OP_51, this);
+    m_opcodeHandler[0x52] = std::bind(&CPULR35902::OP_52, this);
+    m_opcodeHandler[0x53] = std::bind(&CPULR35902::OP_53, this);
+    m_opcodeHandler[0x54] = std::bind(&CPULR35902::OP_54, this);
+    m_opcodeHandler[0x55] = std::bind(&CPULR35902::OP_55, this);
+    m_opcodeHandler[0x56] = std::bind(&CPULR35902::OP_56, this);
+    m_opcodeHandler[0x57] = std::bind(&CPULR35902::OP_57, this);
+    m_opcodeHandler[0x58] = std::bind(&CPULR35902::OP_58, this);
+    m_opcodeHandler[0x59] = std::bind(&CPULR35902::OP_59, this);
+    m_opcodeHandler[0x5A] = std::bind(&CPULR35902::OP_5A, this);
+    m_opcodeHandler[0x5B] = std::bind(&CPULR35902::OP_5B, this);
+    m_opcodeHandler[0x5C] = std::bind(&CPULR35902::OP_5C, this);
+    m_opcodeHandler[0x5D] = std::bind(&CPULR35902::OP_5D, this);
+    m_opcodeHandler[0x5E] = std::bind(&CPULR35902::OP_5E, this);
+    m_opcodeHandler[0x5F] = std::bind(&CPULR35902::OP_5F, this);
+    m_opcodeHandler[0x60] = std::bind(&CPULR35902::OP_60, this);
+    m_opcodeHandler[0x61] = std::bind(&CPULR35902::OP_61, this);
+    m_opcodeHandler[0x62] = std::bind(&CPULR35902::OP_62, this);
+    m_opcodeHandler[0x63] = std::bind(&CPULR35902::OP_63, this);
+    m_opcodeHandler[0x64] = std::bind(&CPULR35902::OP_64, this);
+    m_opcodeHandler[0x65] = std::bind(&CPULR35902::OP_65, this);
+    m_opcodeHandler[0x66] = std::bind(&CPULR35902::OP_66, this);
+    m_opcodeHandler[0x67] = std::bind(&CPULR35902::OP_67, this);
+    m_opcodeHandler[0x68] = std::bind(&CPULR35902::OP_68, this);
+    m_opcodeHandler[0x69] = std::bind(&CPULR35902::OP_69, this);
+    m_opcodeHandler[0x6A] = std::bind(&CPULR35902::OP_6A, this);
+    m_opcodeHandler[0x6B] = std::bind(&CPULR35902::OP_6B, this);
+    m_opcodeHandler[0x6C] = std::bind(&CPULR35902::OP_6C, this);
+    m_opcodeHandler[0x6D] = std::bind(&CPULR35902::OP_6D, this);
+    m_opcodeHandler[0x6E] = std::bind(&CPULR35902::OP_6E, this);
+    m_opcodeHandler[0x6F] = std::bind(&CPULR35902::OP_6F, this);
+    m_opcodeHandler[0x70] = std::bind(&CPULR35902::OP_70, this);
+    m_opcodeHandler[0x71] = std::bind(&CPULR35902::OP_71, this);
+    m_opcodeHandler[0x72] = std::bind(&CPULR35902::OP_72, this);
+    m_opcodeHandler[0x73] = std::bind(&CPULR35902::OP_73, this);
+    m_opcodeHandler[0x74] = std::bind(&CPULR35902::OP_74, this);
+    m_opcodeHandler[0x75] = std::bind(&CPULR35902::OP_75, this);
+    m_opcodeHandler[0x76] = std::bind(&CPULR35902::OP_76, this);
+    m_opcodeHandler[0x77] = std::bind(&CPULR35902::OP_77, this);
+    m_opcodeHandler[0x78] = std::bind(&CPULR35902::OP_78, this);
+    m_opcodeHandler[0x79] = std::bind(&CPULR35902::OP_79, this);
+    m_opcodeHandler[0x7A] = std::bind(&CPULR35902::OP_7A, this);
+    m_opcodeHandler[0x7B] = std::bind(&CPULR35902::OP_7B, this);
+    m_opcodeHandler[0x7C] = std::bind(&CPULR35902::OP_7C, this);
+    m_opcodeHandler[0x7D] = std::bind(&CPULR35902::OP_7D, this);
+    m_opcodeHandler[0x7E] = std::bind(&CPULR35902::OP_7E, this);
+    m_opcodeHandler[0x7F] = std::bind(&CPULR35902::OP_7F, this);
+    m_opcodeHandler[0x80] = std::bind(&CPULR35902::OP_80, this);
+    m_opcodeHandler[0x81] = std::bind(&CPULR35902::OP_81, this);
+    m_opcodeHandler[0x82] = std::bind(&CPULR35902::OP_82, this);
+    m_opcodeHandler[0x83] = std::bind(&CPULR35902::OP_83, this);
+    m_opcodeHandler[0x84] = std::bind(&CPULR35902::OP_84, this);
+    m_opcodeHandler[0x85] = std::bind(&CPULR35902::OP_85, this);
+    m_opcodeHandler[0x86] = std::bind(&CPULR35902::OP_86, this);
+    m_opcodeHandler[0x87] = std::bind(&CPULR35902::OP_87, this);
+    m_opcodeHandler[0x88] = std::bind(&CPULR35902::OP_88, this);
+    m_opcodeHandler[0x89] = std::bind(&CPULR35902::OP_89, this);
+    m_opcodeHandler[0x8A] = std::bind(&CPULR35902::OP_8A, this);
+    m_opcodeHandler[0x8B] = std::bind(&CPULR35902::OP_8B, this);
+    m_opcodeHandler[0x8C] = std::bind(&CPULR35902::OP_8C, this);
+    m_opcodeHandler[0x8D] = std::bind(&CPULR35902::OP_8D, this);
+    m_opcodeHandler[0x8E] = std::bind(&CPULR35902::OP_8E, this);
+    m_opcodeHandler[0x8F] = std::bind(&CPULR35902::OP_8F, this);
+    m_opcodeHandler[0x90] = std::bind(&CPULR35902::OP_90, this);
+    m_opcodeHandler[0x91] = std::bind(&CPULR35902::OP_91, this);
+    m_opcodeHandler[0x92] = std::bind(&CPULR35902::OP_92, this);
+    m_opcodeHandler[0x93] = std::bind(&CPULR35902::OP_93, this);
+    m_opcodeHandler[0x94] = std::bind(&CPULR35902::OP_94, this);
+    m_opcodeHandler[0x95] = std::bind(&CPULR35902::OP_95, this);
+    m_opcodeHandler[0x96] = std::bind(&CPULR35902::OP_96, this);
+    m_opcodeHandler[0x97] = std::bind(&CPULR35902::OP_97, this);
+    m_opcodeHandler[0x98] = std::bind(&CPULR35902::OP_98, this);
+    m_opcodeHandler[0x99] = std::bind(&CPULR35902::OP_99, this);
+    m_opcodeHandler[0x9A] = std::bind(&CPULR35902::OP_9A, this);
+    m_opcodeHandler[0x9B] = std::bind(&CPULR35902::OP_9B, this);
+    m_opcodeHandler[0x9C] = std::bind(&CPULR35902::OP_9C, this);
+    m_opcodeHandler[0x9D] = std::bind(&CPULR35902::OP_9D, this);
+    m_opcodeHandler[0x9E] = std::bind(&CPULR35902::OP_9E, this);
+    m_opcodeHandler[0x9F] = std::bind(&CPULR35902::OP_9F, this);
+    m_opcodeHandler[0xA0] = std::bind(&CPULR35902::OP_A0, this);
+    m_opcodeHandler[0xA1] = std::bind(&CPULR35902::OP_A1, this);
+    m_opcodeHandler[0xA2] = std::bind(&CPULR35902::OP_A2, this);
+    m_opcodeHandler[0xA3] = std::bind(&CPULR35902::OP_A3, this);
+    m_opcodeHandler[0xA4] = std::bind(&CPULR35902::OP_A4, this);
+    m_opcodeHandler[0xA5] = std::bind(&CPULR35902::OP_A5, this);
+    m_opcodeHandler[0xA6] = std::bind(&CPULR35902::OP_A6, this);
+    m_opcodeHandler[0xA7] = std::bind(&CPULR35902::OP_A7, this);
+    m_opcodeHandler[0xA8] = std::bind(&CPULR35902::OP_A8, this);
+    m_opcodeHandler[0xA9] = std::bind(&CPULR35902::OP_A9, this);
+    m_opcodeHandler[0xAA] = std::bind(&CPULR35902::OP_AA, this);
+    m_opcodeHandler[0xAB] = std::bind(&CPULR35902::OP_AB, this);
+    m_opcodeHandler[0xAC] = std::bind(&CPULR35902::OP_AC, this);
+    m_opcodeHandler[0xAD] = std::bind(&CPULR35902::OP_AD, this);
+    m_opcodeHandler[0xAE] = std::bind(&CPULR35902::OP_AE, this);
+    m_opcodeHandler[0xAF] = std::bind(&CPULR35902::OP_AF, this);
+    m_opcodeHandler[0xB0] = std::bind(&CPULR35902::OP_B0, this);
+    m_opcodeHandler[0xB1] = std::bind(&CPULR35902::OP_B1, this);
+    m_opcodeHandler[0xB2] = std::bind(&CPULR35902::OP_B2, this);
+    m_opcodeHandler[0xB3] = std::bind(&CPULR35902::OP_B3, this);
+    m_opcodeHandler[0xB4] = std::bind(&CPULR35902::OP_B4, this);
+    m_opcodeHandler[0xB5] = std::bind(&CPULR35902::OP_B5, this);
+    m_opcodeHandler[0xB6] = std::bind(&CPULR35902::OP_B6, this);
+    m_opcodeHandler[0xB7] = std::bind(&CPULR35902::OP_B7, this);
+    m_opcodeHandler[0xB8] = std::bind(&CPULR35902::OP_B8, this);
+    m_opcodeHandler[0xB9] = std::bind(&CPULR35902::OP_B9, this);
+    m_opcodeHandler[0xBA] = std::bind(&CPULR35902::OP_BA, this);
+    m_opcodeHandler[0xBB] = std::bind(&CPULR35902::OP_BB, this);
+    m_opcodeHandler[0xBC] = std::bind(&CPULR35902::OP_BC, this);
+    m_opcodeHandler[0xBD] = std::bind(&CPULR35902::OP_BD, this);
+    m_opcodeHandler[0xBE] = std::bind(&CPULR35902::OP_BE, this);
+    m_opcodeHandler[0xBF] = std::bind(&CPULR35902::OP_BF, this);
+    m_opcodeHandler[0xC0] = std::bind(&CPULR35902::OP_C0, this);
+    m_opcodeHandler[0xC1] = std::bind(&CPULR35902::OP_C1, this);
+    m_opcodeHandler[0xC2] = std::bind(&CPULR35902::OP_C2, this);
+    m_opcodeHandler[0xC3] = std::bind(&CPULR35902::OP_C3, this);
+    m_opcodeHandler[0xC4] = std::bind(&CPULR35902::OP_C4, this);
+    m_opcodeHandler[0xC5] = std::bind(&CPULR35902::OP_C5, this);
+    m_opcodeHandler[0xC6] = std::bind(&CPULR35902::OP_C6, this);
+    m_opcodeHandler[0xC7] = std::bind(&CPULR35902::OP_C7, this);
+    m_opcodeHandler[0xC8] = std::bind(&CPULR35902::OP_C8, this);
+    m_opcodeHandler[0xC9] = std::bind(&CPULR35902::OP_C9, this);
+    m_opcodeHandler[0xCA] = std::bind(&CPULR35902::OP_CA, this);
+    m_opcodeHandler[0xCB] = std::bind(&CPULR35902::OP_CB, this);
+    m_opcodeHandler[0xCC] = std::bind(&CPULR35902::OP_CC, this);
+    m_opcodeHandler[0xCD] = std::bind(&CPULR35902::OP_CD, this);
+    m_opcodeHandler[0xCE] = std::bind(&CPULR35902::OP_CE, this);
+    m_opcodeHandler[0xCF] = std::bind(&CPULR35902::OP_CF, this);
+    m_opcodeHandler[0xD0] = std::bind(&CPULR35902::OP_D0, this);
+    m_opcodeHandler[0xD1] = std::bind(&CPULR35902::OP_D1, this);
+    m_opcodeHandler[0xD2] = std::bind(&CPULR35902::OP_D2, this);
+    m_opcodeHandler[0xD3] = std::bind(&CPULR35902::OP_D3, this);
+    m_opcodeHandler[0xD4] = std::bind(&CPULR35902::OP_D4, this);
+    m_opcodeHandler[0xD5] = std::bind(&CPULR35902::OP_D5, this);
+    m_opcodeHandler[0xD6] = std::bind(&CPULR35902::OP_D6, this);
+    m_opcodeHandler[0xD7] = std::bind(&CPULR35902::OP_D7, this);
+    m_opcodeHandler[0xD8] = std::bind(&CPULR35902::OP_D8, this);
+    m_opcodeHandler[0xD9] = std::bind(&CPULR35902::OP_D9, this);
+    m_opcodeHandler[0xDA] = std::bind(&CPULR35902::OP_DA, this);
+    m_opcodeHandler[0xDB] = std::bind(&CPULR35902::OP_DB, this);
+    m_opcodeHandler[0xDC] = std::bind(&CPULR35902::OP_DC, this);
+    m_opcodeHandler[0xDD] = std::bind(&CPULR35902::OP_DD, this);
+    m_opcodeHandler[0xDE] = std::bind(&CPULR35902::OP_DE, this);
+    m_opcodeHandler[0xDF] = std::bind(&CPULR35902::OP_DF, this);
+    m_opcodeHandler[0xE0] = std::bind(&CPULR35902::OP_E0, this);
+    m_opcodeHandler[0xE1] = std::bind(&CPULR35902::OP_E1, this);
+    m_opcodeHandler[0xE2] = std::bind(&CPULR35902::OP_E2, this);
+    m_opcodeHandler[0xE3] = std::bind(&CPULR35902::OP_E3, this);
+    m_opcodeHandler[0xE4] = std::bind(&CPULR35902::OP_E4, this);
+    m_opcodeHandler[0xE5] = std::bind(&CPULR35902::OP_E5, this);
+    m_opcodeHandler[0xE6] = std::bind(&CPULR35902::OP_E6, this);
+    m_opcodeHandler[0xE7] = std::bind(&CPULR35902::OP_E7, this);
+    m_opcodeHandler[0xE8] = std::bind(&CPULR35902::OP_E8, this);
+    m_opcodeHandler[0xE9] = std::bind(&CPULR35902::OP_E9, this);
+    m_opcodeHandler[0xEA] = std::bind(&CPULR35902::OP_EA, this);
+    m_opcodeHandler[0xEB] = std::bind(&CPULR35902::OP_EB, this);
+    m_opcodeHandler[0xEC] = std::bind(&CPULR35902::OP_EC, this);
+    m_opcodeHandler[0xED] = std::bind(&CPULR35902::OP_ED, this);
+    m_opcodeHandler[0xEE] = std::bind(&CPULR35902::OP_EE, this);
+    m_opcodeHandler[0xEF] = std::bind(&CPULR35902::OP_EF, this);
+    m_opcodeHandler[0xF0] = std::bind(&CPULR35902::OP_F0, this);
+    m_opcodeHandler[0xF1] = std::bind(&CPULR35902::OP_F1, this);
+    m_opcodeHandler[0xF2] = std::bind(&CPULR35902::OP_F2, this);
+    m_opcodeHandler[0xF3] = std::bind(&CPULR35902::OP_F3, this);
+    m_opcodeHandler[0xF4] = std::bind(&CPULR35902::OP_F4, this);
+    m_opcodeHandler[0xF5] = std::bind(&CPULR35902::OP_F5, this);
+    m_opcodeHandler[0xF6] = std::bind(&CPULR35902::OP_F6, this);
+    m_opcodeHandler[0xF7] = std::bind(&CPULR35902::OP_F7, this);
+    m_opcodeHandler[0xF8] = std::bind(&CPULR35902::OP_F8, this);
+    m_opcodeHandler[0xF9] = std::bind(&CPULR35902::OP_F9, this);
+    m_opcodeHandler[0xFA] = std::bind(&CPULR35902::OP_FA, this);
+    m_opcodeHandler[0xFB] = std::bind(&CPULR35902::OP_FB, this);
+    m_opcodeHandler[0xFC] = std::bind(&CPULR35902::OP_FC, this);
+    m_opcodeHandler[0xFD] = std::bind(&CPULR35902::OP_FD, this);
+    m_opcodeHandler[0xFE] = std::bind(&CPULR35902::OP_FE, this);
+    m_opcodeHandler[0xFF] = std::bind(&CPULR35902::OP_FF, this);
 
-    prefixHandler[0x00] = std::bind(&CPULR35902::PR_00, this);
-    prefixHandler[0x01] = std::bind(&CPULR35902::PR_01, this);
-    prefixHandler[0x02] = std::bind(&CPULR35902::PR_02, this);
-    prefixHandler[0x03] = std::bind(&CPULR35902::PR_03, this);
-    prefixHandler[0x04] = std::bind(&CPULR35902::PR_04, this);
-    prefixHandler[0x05] = std::bind(&CPULR35902::PR_05, this);
-    prefixHandler[0x06] = std::bind(&CPULR35902::PR_06, this);
-    prefixHandler[0x07] = std::bind(&CPULR35902::PR_07, this);
-    prefixHandler[0x08] = std::bind(&CPULR35902::PR_08, this);
-    prefixHandler[0x09] = std::bind(&CPULR35902::PR_09, this);
-    prefixHandler[0x0A] = std::bind(&CPULR35902::PR_0A, this);
-    prefixHandler[0x0B] = std::bind(&CPULR35902::PR_0B, this);
-    prefixHandler[0x0C] = std::bind(&CPULR35902::PR_0C, this);
-    prefixHandler[0x0D] = std::bind(&CPULR35902::PR_0D, this);
-    prefixHandler[0x0E] = std::bind(&CPULR35902::PR_0E, this);
-    prefixHandler[0x0F] = std::bind(&CPULR35902::PR_0F, this);
-    prefixHandler[0x10] = std::bind(&CPULR35902::PR_10, this);
-    prefixHandler[0x11] = std::bind(&CPULR35902::PR_11, this);
-    prefixHandler[0x12] = std::bind(&CPULR35902::PR_12, this);
-    prefixHandler[0x13] = std::bind(&CPULR35902::PR_13, this);
-    prefixHandler[0x14] = std::bind(&CPULR35902::PR_14, this);
-    prefixHandler[0x15] = std::bind(&CPULR35902::PR_15, this);
-    prefixHandler[0x16] = std::bind(&CPULR35902::PR_16, this);
-    prefixHandler[0x17] = std::bind(&CPULR35902::PR_17, this);
-    prefixHandler[0x18] = std::bind(&CPULR35902::PR_18, this);
-    prefixHandler[0x19] = std::bind(&CPULR35902::PR_19, this);
-    prefixHandler[0x1A] = std::bind(&CPULR35902::PR_1A, this);
-    prefixHandler[0x1B] = std::bind(&CPULR35902::PR_1B, this);
-    prefixHandler[0x1C] = std::bind(&CPULR35902::PR_1C, this);
-    prefixHandler[0x1D] = std::bind(&CPULR35902::PR_1D, this);
-    prefixHandler[0x1E] = std::bind(&CPULR35902::PR_1E, this);
-    prefixHandler[0x1F] = std::bind(&CPULR35902::PR_1F, this);
-    prefixHandler[0x20] = std::bind(&CPULR35902::PR_20, this);
-    prefixHandler[0x21] = std::bind(&CPULR35902::PR_21, this);
-    prefixHandler[0x22] = std::bind(&CPULR35902::PR_22, this);
-    prefixHandler[0x23] = std::bind(&CPULR35902::PR_23, this);
-    prefixHandler[0x24] = std::bind(&CPULR35902::PR_24, this);
-    prefixHandler[0x25] = std::bind(&CPULR35902::PR_25, this);
-    prefixHandler[0x26] = std::bind(&CPULR35902::PR_26, this);
-    prefixHandler[0x27] = std::bind(&CPULR35902::PR_27, this);
-    prefixHandler[0x28] = std::bind(&CPULR35902::PR_28, this);
-    prefixHandler[0x29] = std::bind(&CPULR35902::PR_29, this);
-    prefixHandler[0x2A] = std::bind(&CPULR35902::PR_2A, this);
-    prefixHandler[0x2B] = std::bind(&CPULR35902::PR_2B, this);
-    prefixHandler[0x2C] = std::bind(&CPULR35902::PR_2C, this);
-    prefixHandler[0x2D] = std::bind(&CPULR35902::PR_2D, this);
-    prefixHandler[0x2E] = std::bind(&CPULR35902::PR_2E, this);
-    prefixHandler[0x2F] = std::bind(&CPULR35902::PR_2F, this);
-    prefixHandler[0x30] = std::bind(&CPULR35902::PR_30, this);
-    prefixHandler[0x31] = std::bind(&CPULR35902::PR_31, this);
-    prefixHandler[0x32] = std::bind(&CPULR35902::PR_32, this);
-    prefixHandler[0x33] = std::bind(&CPULR35902::PR_33, this);
-    prefixHandler[0x34] = std::bind(&CPULR35902::PR_34, this);
-    prefixHandler[0x35] = std::bind(&CPULR35902::PR_35, this);
-    prefixHandler[0x36] = std::bind(&CPULR35902::PR_36, this);
-    prefixHandler[0x37] = std::bind(&CPULR35902::PR_37, this);
-    prefixHandler[0x38] = std::bind(&CPULR35902::PR_38, this);
-    prefixHandler[0x39] = std::bind(&CPULR35902::PR_39, this);
-    prefixHandler[0x3A] = std::bind(&CPULR35902::PR_3A, this);
-    prefixHandler[0x3B] = std::bind(&CPULR35902::PR_3B, this);
-    prefixHandler[0x3C] = std::bind(&CPULR35902::PR_3C, this);
-    prefixHandler[0x3D] = std::bind(&CPULR35902::PR_3D, this);
-    prefixHandler[0x3E] = std::bind(&CPULR35902::PR_3E, this);
-    prefixHandler[0x3F] = std::bind(&CPULR35902::PR_3F, this);
-    prefixHandler[0x40] = std::bind(&CPULR35902::PR_40, this);
-    prefixHandler[0x41] = std::bind(&CPULR35902::PR_41, this);
-    prefixHandler[0x42] = std::bind(&CPULR35902::PR_42, this);
-    prefixHandler[0x43] = std::bind(&CPULR35902::PR_43, this);
-    prefixHandler[0x44] = std::bind(&CPULR35902::PR_44, this);
-    prefixHandler[0x45] = std::bind(&CPULR35902::PR_45, this);
-    prefixHandler[0x46] = std::bind(&CPULR35902::PR_46, this);
-    prefixHandler[0x47] = std::bind(&CPULR35902::PR_47, this);
-    prefixHandler[0x48] = std::bind(&CPULR35902::PR_48, this);
-    prefixHandler[0x49] = std::bind(&CPULR35902::PR_49, this);
-    prefixHandler[0x4A] = std::bind(&CPULR35902::PR_4A, this);
-    prefixHandler[0x4B] = std::bind(&CPULR35902::PR_4B, this);
-    prefixHandler[0x4C] = std::bind(&CPULR35902::PR_4C, this);
-    prefixHandler[0x4D] = std::bind(&CPULR35902::PR_4D, this);
-    prefixHandler[0x4E] = std::bind(&CPULR35902::PR_4E, this);
-    prefixHandler[0x4F] = std::bind(&CPULR35902::PR_4F, this);
-    prefixHandler[0x50] = std::bind(&CPULR35902::PR_50, this);
-    prefixHandler[0x51] = std::bind(&CPULR35902::PR_51, this);
-    prefixHandler[0x52] = std::bind(&CPULR35902::PR_52, this);
-    prefixHandler[0x53] = std::bind(&CPULR35902::PR_53, this);
-    prefixHandler[0x54] = std::bind(&CPULR35902::PR_54, this);
-    prefixHandler[0x55] = std::bind(&CPULR35902::PR_55, this);
-    prefixHandler[0x56] = std::bind(&CPULR35902::PR_56, this);
-    prefixHandler[0x57] = std::bind(&CPULR35902::PR_57, this);
-    prefixHandler[0x58] = std::bind(&CPULR35902::PR_58, this);
-    prefixHandler[0x59] = std::bind(&CPULR35902::PR_59, this);
-    prefixHandler[0x5A] = std::bind(&CPULR35902::PR_5A, this);
-    prefixHandler[0x5B] = std::bind(&CPULR35902::PR_5B, this);
-    prefixHandler[0x5C] = std::bind(&CPULR35902::PR_5C, this);
-    prefixHandler[0x5D] = std::bind(&CPULR35902::PR_5D, this);
-    prefixHandler[0x5E] = std::bind(&CPULR35902::PR_5E, this);
-    prefixHandler[0x5F] = std::bind(&CPULR35902::PR_5F, this);
-    prefixHandler[0x60] = std::bind(&CPULR35902::PR_60, this);
-    prefixHandler[0x61] = std::bind(&CPULR35902::PR_61, this);
-    prefixHandler[0x62] = std::bind(&CPULR35902::PR_62, this);
-    prefixHandler[0x63] = std::bind(&CPULR35902::PR_63, this);
-    prefixHandler[0x64] = std::bind(&CPULR35902::PR_64, this);
-    prefixHandler[0x65] = std::bind(&CPULR35902::PR_65, this);
-    prefixHandler[0x66] = std::bind(&CPULR35902::PR_66, this);
-    prefixHandler[0x67] = std::bind(&CPULR35902::PR_67, this);
-    prefixHandler[0x68] = std::bind(&CPULR35902::PR_68, this);
-    prefixHandler[0x69] = std::bind(&CPULR35902::PR_69, this);
-    prefixHandler[0x6A] = std::bind(&CPULR35902::PR_6A, this);
-    prefixHandler[0x6B] = std::bind(&CPULR35902::PR_6B, this);
-    prefixHandler[0x6C] = std::bind(&CPULR35902::PR_6C, this);
-    prefixHandler[0x6D] = std::bind(&CPULR35902::PR_6D, this);
-    prefixHandler[0x6E] = std::bind(&CPULR35902::PR_6E, this);
-    prefixHandler[0x6F] = std::bind(&CPULR35902::PR_6F, this);
-    prefixHandler[0x70] = std::bind(&CPULR35902::PR_70, this);
-    prefixHandler[0x71] = std::bind(&CPULR35902::PR_71, this);
-    prefixHandler[0x72] = std::bind(&CPULR35902::PR_72, this);
-    prefixHandler[0x73] = std::bind(&CPULR35902::PR_73, this);
-    prefixHandler[0x74] = std::bind(&CPULR35902::PR_74, this);
-    prefixHandler[0x75] = std::bind(&CPULR35902::PR_75, this);
-    prefixHandler[0x76] = std::bind(&CPULR35902::PR_76, this);
-    prefixHandler[0x77] = std::bind(&CPULR35902::PR_77, this);
-    prefixHandler[0x78] = std::bind(&CPULR35902::PR_78, this);
-    prefixHandler[0x79] = std::bind(&CPULR35902::PR_79, this);
-    prefixHandler[0x7A] = std::bind(&CPULR35902::PR_7A, this);
-    prefixHandler[0x7B] = std::bind(&CPULR35902::PR_7B, this);
-    prefixHandler[0x7C] = std::bind(&CPULR35902::PR_7C, this);
-    prefixHandler[0x7D] = std::bind(&CPULR35902::PR_7D, this);
-    prefixHandler[0x7E] = std::bind(&CPULR35902::PR_7E, this);
-    prefixHandler[0x7F] = std::bind(&CPULR35902::PR_7F, this);
-    prefixHandler[0x80] = std::bind(&CPULR35902::PR_80, this);
-    prefixHandler[0x81] = std::bind(&CPULR35902::PR_81, this);
-    prefixHandler[0x82] = std::bind(&CPULR35902::PR_82, this);
-    prefixHandler[0x83] = std::bind(&CPULR35902::PR_83, this);
-    prefixHandler[0x84] = std::bind(&CPULR35902::PR_84, this);
-    prefixHandler[0x85] = std::bind(&CPULR35902::PR_85, this);
-    prefixHandler[0x86] = std::bind(&CPULR35902::PR_86, this);
-    prefixHandler[0x87] = std::bind(&CPULR35902::PR_87, this);
-    prefixHandler[0x88] = std::bind(&CPULR35902::PR_88, this);
-    prefixHandler[0x89] = std::bind(&CPULR35902::PR_89, this);
-    prefixHandler[0x8A] = std::bind(&CPULR35902::PR_8A, this);
-    prefixHandler[0x8B] = std::bind(&CPULR35902::PR_8B, this);
-    prefixHandler[0x8C] = std::bind(&CPULR35902::PR_8C, this);
-    prefixHandler[0x8D] = std::bind(&CPULR35902::PR_8D, this);
-    prefixHandler[0x8E] = std::bind(&CPULR35902::PR_8E, this);
-    prefixHandler[0x8F] = std::bind(&CPULR35902::PR_8F, this);
-    prefixHandler[0x90] = std::bind(&CPULR35902::PR_90, this);
-    prefixHandler[0x91] = std::bind(&CPULR35902::PR_91, this);
-    prefixHandler[0x92] = std::bind(&CPULR35902::PR_92, this);
-    prefixHandler[0x93] = std::bind(&CPULR35902::PR_93, this);
-    prefixHandler[0x94] = std::bind(&CPULR35902::PR_94, this);
-    prefixHandler[0x95] = std::bind(&CPULR35902::PR_95, this);
-    prefixHandler[0x96] = std::bind(&CPULR35902::PR_96, this);
-    prefixHandler[0x97] = std::bind(&CPULR35902::PR_97, this);
-    prefixHandler[0x98] = std::bind(&CPULR35902::PR_98, this);
-    prefixHandler[0x99] = std::bind(&CPULR35902::PR_99, this);
-    prefixHandler[0x9A] = std::bind(&CPULR35902::PR_9A, this);
-    prefixHandler[0x9B] = std::bind(&CPULR35902::PR_9B, this);
-    prefixHandler[0x9C] = std::bind(&CPULR35902::PR_9C, this);
-    prefixHandler[0x9D] = std::bind(&CPULR35902::PR_9D, this);
-    prefixHandler[0x9E] = std::bind(&CPULR35902::PR_9E, this);
-    prefixHandler[0x9F] = std::bind(&CPULR35902::PR_9F, this);
-    prefixHandler[0xA0] = std::bind(&CPULR35902::PR_A0, this);
-    prefixHandler[0xA1] = std::bind(&CPULR35902::PR_A1, this);
-    prefixHandler[0xA2] = std::bind(&CPULR35902::PR_A2, this);
-    prefixHandler[0xA3] = std::bind(&CPULR35902::PR_A3, this);
-    prefixHandler[0xA4] = std::bind(&CPULR35902::PR_A4, this);
-    prefixHandler[0xA5] = std::bind(&CPULR35902::PR_A5, this);
-    prefixHandler[0xA6] = std::bind(&CPULR35902::PR_A6, this);
-    prefixHandler[0xA7] = std::bind(&CPULR35902::PR_A7, this);
-    prefixHandler[0xA8] = std::bind(&CPULR35902::PR_A8, this);
-    prefixHandler[0xA9] = std::bind(&CPULR35902::PR_A9, this);
-    prefixHandler[0xAA] = std::bind(&CPULR35902::PR_AA, this);
-    prefixHandler[0xAB] = std::bind(&CPULR35902::PR_AB, this);
-    prefixHandler[0xAC] = std::bind(&CPULR35902::PR_AC, this);
-    prefixHandler[0xAD] = std::bind(&CPULR35902::PR_AD, this);
-    prefixHandler[0xAE] = std::bind(&CPULR35902::PR_AE, this);
-    prefixHandler[0xAF] = std::bind(&CPULR35902::PR_AF, this);
-    prefixHandler[0xB0] = std::bind(&CPULR35902::PR_B0, this);
-    prefixHandler[0xB1] = std::bind(&CPULR35902::PR_B1, this);
-    prefixHandler[0xB2] = std::bind(&CPULR35902::PR_B2, this);
-    prefixHandler[0xB3] = std::bind(&CPULR35902::PR_B3, this);
-    prefixHandler[0xB4] = std::bind(&CPULR35902::PR_B4, this);
-    prefixHandler[0xB5] = std::bind(&CPULR35902::PR_B5, this);
-    prefixHandler[0xB6] = std::bind(&CPULR35902::PR_B6, this);
-    prefixHandler[0xB7] = std::bind(&CPULR35902::PR_B7, this);
-    prefixHandler[0xB8] = std::bind(&CPULR35902::PR_B8, this);
-    prefixHandler[0xB9] = std::bind(&CPULR35902::PR_B9, this);
-    prefixHandler[0xBA] = std::bind(&CPULR35902::PR_BA, this);
-    prefixHandler[0xBB] = std::bind(&CPULR35902::PR_BB, this);
-    prefixHandler[0xBC] = std::bind(&CPULR35902::PR_BC, this);
-    prefixHandler[0xBD] = std::bind(&CPULR35902::PR_BD, this);
-    prefixHandler[0xBE] = std::bind(&CPULR35902::PR_BE, this);
-    prefixHandler[0xBF] = std::bind(&CPULR35902::PR_BF, this);
-    prefixHandler[0xC0] = std::bind(&CPULR35902::PR_C0, this);
-    prefixHandler[0xC1] = std::bind(&CPULR35902::PR_C1, this);
-    prefixHandler[0xC2] = std::bind(&CPULR35902::PR_C2, this);
-    prefixHandler[0xC3] = std::bind(&CPULR35902::PR_C3, this);
-    prefixHandler[0xC4] = std::bind(&CPULR35902::PR_C4, this);
-    prefixHandler[0xC5] = std::bind(&CPULR35902::PR_C5, this);
-    prefixHandler[0xC6] = std::bind(&CPULR35902::PR_C6, this);
-    prefixHandler[0xC7] = std::bind(&CPULR35902::PR_C7, this);
-    prefixHandler[0xC8] = std::bind(&CPULR35902::PR_C8, this);
-    prefixHandler[0xC9] = std::bind(&CPULR35902::PR_C9, this);
-    prefixHandler[0xCA] = std::bind(&CPULR35902::PR_CA, this);
-    prefixHandler[0xCB] = std::bind(&CPULR35902::PR_CB, this);
-    prefixHandler[0xCC] = std::bind(&CPULR35902::PR_CC, this);
-    prefixHandler[0xCD] = std::bind(&CPULR35902::PR_CD, this);
-    prefixHandler[0xCE] = std::bind(&CPULR35902::PR_CE, this);
-    prefixHandler[0xCF] = std::bind(&CPULR35902::PR_CF, this);
-    prefixHandler[0xD0] = std::bind(&CPULR35902::PR_D0, this);
-    prefixHandler[0xD1] = std::bind(&CPULR35902::PR_D1, this);
-    prefixHandler[0xD2] = std::bind(&CPULR35902::PR_D2, this);
-    prefixHandler[0xD3] = std::bind(&CPULR35902::PR_D3, this);
-    prefixHandler[0xD4] = std::bind(&CPULR35902::PR_D4, this);
-    prefixHandler[0xD5] = std::bind(&CPULR35902::PR_D5, this);
-    prefixHandler[0xD6] = std::bind(&CPULR35902::PR_D6, this);
-    prefixHandler[0xD7] = std::bind(&CPULR35902::PR_D7, this);
-    prefixHandler[0xD8] = std::bind(&CPULR35902::PR_D8, this);
-    prefixHandler[0xD9] = std::bind(&CPULR35902::PR_D9, this);
-    prefixHandler[0xDA] = std::bind(&CPULR35902::PR_DA, this);
-    prefixHandler[0xDB] = std::bind(&CPULR35902::PR_DB, this);
-    prefixHandler[0xDC] = std::bind(&CPULR35902::PR_DC, this);
-    prefixHandler[0xDD] = std::bind(&CPULR35902::PR_DD, this);
-    prefixHandler[0xDE] = std::bind(&CPULR35902::PR_DE, this);
-    prefixHandler[0xDF] = std::bind(&CPULR35902::PR_DF, this);
-    prefixHandler[0xE0] = std::bind(&CPULR35902::PR_E0, this);
-    prefixHandler[0xE1] = std::bind(&CPULR35902::PR_E1, this);
-    prefixHandler[0xE2] = std::bind(&CPULR35902::PR_E2, this);
-    prefixHandler[0xE3] = std::bind(&CPULR35902::PR_E3, this);
-    prefixHandler[0xE4] = std::bind(&CPULR35902::PR_E4, this);
-    prefixHandler[0xE5] = std::bind(&CPULR35902::PR_E5, this);
-    prefixHandler[0xE6] = std::bind(&CPULR35902::PR_E6, this);
-    prefixHandler[0xE7] = std::bind(&CPULR35902::PR_E7, this);
-    prefixHandler[0xE8] = std::bind(&CPULR35902::PR_E8, this);
-    prefixHandler[0xE9] = std::bind(&CPULR35902::PR_E9, this);
-    prefixHandler[0xEA] = std::bind(&CPULR35902::PR_EA, this);
-    prefixHandler[0xEB] = std::bind(&CPULR35902::PR_EB, this);
-    prefixHandler[0xEC] = std::bind(&CPULR35902::PR_EC, this);
-    prefixHandler[0xED] = std::bind(&CPULR35902::PR_ED, this);
-    prefixHandler[0xEE] = std::bind(&CPULR35902::PR_EE, this);
-    prefixHandler[0xEF] = std::bind(&CPULR35902::PR_EF, this);
-    prefixHandler[0xF0] = std::bind(&CPULR35902::PR_F0, this);
-    prefixHandler[0xF1] = std::bind(&CPULR35902::PR_F1, this);
-    prefixHandler[0xF2] = std::bind(&CPULR35902::PR_F2, this);
-    prefixHandler[0xF3] = std::bind(&CPULR35902::PR_F3, this);
-    prefixHandler[0xF4] = std::bind(&CPULR35902::PR_F4, this);
-    prefixHandler[0xF5] = std::bind(&CPULR35902::PR_F5, this);
-    prefixHandler[0xF6] = std::bind(&CPULR35902::PR_F6, this);
-    prefixHandler[0xF7] = std::bind(&CPULR35902::PR_F7, this);
-    prefixHandler[0xF8] = std::bind(&CPULR35902::PR_F8, this);
-    prefixHandler[0xF9] = std::bind(&CPULR35902::PR_F9, this);
-    prefixHandler[0xFA] = std::bind(&CPULR35902::PR_FA, this);
-    prefixHandler[0xFB] = std::bind(&CPULR35902::PR_FB, this);
-    prefixHandler[0xFC] = std::bind(&CPULR35902::PR_FC, this);
-    prefixHandler[0xFD] = std::bind(&CPULR35902::PR_FD, this);
-    prefixHandler[0xFE] = std::bind(&CPULR35902::PR_FE, this);
-    prefixHandler[0xFF] = std::bind(&CPULR35902::PR_FF, this);
+    m_prefixHandler[0x00] = std::bind(&CPULR35902::PR_00, this);
+    m_prefixHandler[0x01] = std::bind(&CPULR35902::PR_01, this);
+    m_prefixHandler[0x02] = std::bind(&CPULR35902::PR_02, this);
+    m_prefixHandler[0x03] = std::bind(&CPULR35902::PR_03, this);
+    m_prefixHandler[0x04] = std::bind(&CPULR35902::PR_04, this);
+    m_prefixHandler[0x05] = std::bind(&CPULR35902::PR_05, this);
+    m_prefixHandler[0x06] = std::bind(&CPULR35902::PR_06, this);
+    m_prefixHandler[0x07] = std::bind(&CPULR35902::PR_07, this);
+    m_prefixHandler[0x08] = std::bind(&CPULR35902::PR_08, this);
+    m_prefixHandler[0x09] = std::bind(&CPULR35902::PR_09, this);
+    m_prefixHandler[0x0A] = std::bind(&CPULR35902::PR_0A, this);
+    m_prefixHandler[0x0B] = std::bind(&CPULR35902::PR_0B, this);
+    m_prefixHandler[0x0C] = std::bind(&CPULR35902::PR_0C, this);
+    m_prefixHandler[0x0D] = std::bind(&CPULR35902::PR_0D, this);
+    m_prefixHandler[0x0E] = std::bind(&CPULR35902::PR_0E, this);
+    m_prefixHandler[0x0F] = std::bind(&CPULR35902::PR_0F, this);
+    m_prefixHandler[0x10] = std::bind(&CPULR35902::PR_10, this);
+    m_prefixHandler[0x11] = std::bind(&CPULR35902::PR_11, this);
+    m_prefixHandler[0x12] = std::bind(&CPULR35902::PR_12, this);
+    m_prefixHandler[0x13] = std::bind(&CPULR35902::PR_13, this);
+    m_prefixHandler[0x14] = std::bind(&CPULR35902::PR_14, this);
+    m_prefixHandler[0x15] = std::bind(&CPULR35902::PR_15, this);
+    m_prefixHandler[0x16] = std::bind(&CPULR35902::PR_16, this);
+    m_prefixHandler[0x17] = std::bind(&CPULR35902::PR_17, this);
+    m_prefixHandler[0x18] = std::bind(&CPULR35902::PR_18, this);
+    m_prefixHandler[0x19] = std::bind(&CPULR35902::PR_19, this);
+    m_prefixHandler[0x1A] = std::bind(&CPULR35902::PR_1A, this);
+    m_prefixHandler[0x1B] = std::bind(&CPULR35902::PR_1B, this);
+    m_prefixHandler[0x1C] = std::bind(&CPULR35902::PR_1C, this);
+    m_prefixHandler[0x1D] = std::bind(&CPULR35902::PR_1D, this);
+    m_prefixHandler[0x1E] = std::bind(&CPULR35902::PR_1E, this);
+    m_prefixHandler[0x1F] = std::bind(&CPULR35902::PR_1F, this);
+    m_prefixHandler[0x20] = std::bind(&CPULR35902::PR_20, this);
+    m_prefixHandler[0x21] = std::bind(&CPULR35902::PR_21, this);
+    m_prefixHandler[0x22] = std::bind(&CPULR35902::PR_22, this);
+    m_prefixHandler[0x23] = std::bind(&CPULR35902::PR_23, this);
+    m_prefixHandler[0x24] = std::bind(&CPULR35902::PR_24, this);
+    m_prefixHandler[0x25] = std::bind(&CPULR35902::PR_25, this);
+    m_prefixHandler[0x26] = std::bind(&CPULR35902::PR_26, this);
+    m_prefixHandler[0x27] = std::bind(&CPULR35902::PR_27, this);
+    m_prefixHandler[0x28] = std::bind(&CPULR35902::PR_28, this);
+    m_prefixHandler[0x29] = std::bind(&CPULR35902::PR_29, this);
+    m_prefixHandler[0x2A] = std::bind(&CPULR35902::PR_2A, this);
+    m_prefixHandler[0x2B] = std::bind(&CPULR35902::PR_2B, this);
+    m_prefixHandler[0x2C] = std::bind(&CPULR35902::PR_2C, this);
+    m_prefixHandler[0x2D] = std::bind(&CPULR35902::PR_2D, this);
+    m_prefixHandler[0x2E] = std::bind(&CPULR35902::PR_2E, this);
+    m_prefixHandler[0x2F] = std::bind(&CPULR35902::PR_2F, this);
+    m_prefixHandler[0x30] = std::bind(&CPULR35902::PR_30, this);
+    m_prefixHandler[0x31] = std::bind(&CPULR35902::PR_31, this);
+    m_prefixHandler[0x32] = std::bind(&CPULR35902::PR_32, this);
+    m_prefixHandler[0x33] = std::bind(&CPULR35902::PR_33, this);
+    m_prefixHandler[0x34] = std::bind(&CPULR35902::PR_34, this);
+    m_prefixHandler[0x35] = std::bind(&CPULR35902::PR_35, this);
+    m_prefixHandler[0x36] = std::bind(&CPULR35902::PR_36, this);
+    m_prefixHandler[0x37] = std::bind(&CPULR35902::PR_37, this);
+    m_prefixHandler[0x38] = std::bind(&CPULR35902::PR_38, this);
+    m_prefixHandler[0x39] = std::bind(&CPULR35902::PR_39, this);
+    m_prefixHandler[0x3A] = std::bind(&CPULR35902::PR_3A, this);
+    m_prefixHandler[0x3B] = std::bind(&CPULR35902::PR_3B, this);
+    m_prefixHandler[0x3C] = std::bind(&CPULR35902::PR_3C, this);
+    m_prefixHandler[0x3D] = std::bind(&CPULR35902::PR_3D, this);
+    m_prefixHandler[0x3E] = std::bind(&CPULR35902::PR_3E, this);
+    m_prefixHandler[0x3F] = std::bind(&CPULR35902::PR_3F, this);
+    m_prefixHandler[0x40] = std::bind(&CPULR35902::PR_40, this);
+    m_prefixHandler[0x41] = std::bind(&CPULR35902::PR_41, this);
+    m_prefixHandler[0x42] = std::bind(&CPULR35902::PR_42, this);
+    m_prefixHandler[0x43] = std::bind(&CPULR35902::PR_43, this);
+    m_prefixHandler[0x44] = std::bind(&CPULR35902::PR_44, this);
+    m_prefixHandler[0x45] = std::bind(&CPULR35902::PR_45, this);
+    m_prefixHandler[0x46] = std::bind(&CPULR35902::PR_46, this);
+    m_prefixHandler[0x47] = std::bind(&CPULR35902::PR_47, this);
+    m_prefixHandler[0x48] = std::bind(&CPULR35902::PR_48, this);
+    m_prefixHandler[0x49] = std::bind(&CPULR35902::PR_49, this);
+    m_prefixHandler[0x4A] = std::bind(&CPULR35902::PR_4A, this);
+    m_prefixHandler[0x4B] = std::bind(&CPULR35902::PR_4B, this);
+    m_prefixHandler[0x4C] = std::bind(&CPULR35902::PR_4C, this);
+    m_prefixHandler[0x4D] = std::bind(&CPULR35902::PR_4D, this);
+    m_prefixHandler[0x4E] = std::bind(&CPULR35902::PR_4E, this);
+    m_prefixHandler[0x4F] = std::bind(&CPULR35902::PR_4F, this);
+    m_prefixHandler[0x50] = std::bind(&CPULR35902::PR_50, this);
+    m_prefixHandler[0x51] = std::bind(&CPULR35902::PR_51, this);
+    m_prefixHandler[0x52] = std::bind(&CPULR35902::PR_52, this);
+    m_prefixHandler[0x53] = std::bind(&CPULR35902::PR_53, this);
+    m_prefixHandler[0x54] = std::bind(&CPULR35902::PR_54, this);
+    m_prefixHandler[0x55] = std::bind(&CPULR35902::PR_55, this);
+    m_prefixHandler[0x56] = std::bind(&CPULR35902::PR_56, this);
+    m_prefixHandler[0x57] = std::bind(&CPULR35902::PR_57, this);
+    m_prefixHandler[0x58] = std::bind(&CPULR35902::PR_58, this);
+    m_prefixHandler[0x59] = std::bind(&CPULR35902::PR_59, this);
+    m_prefixHandler[0x5A] = std::bind(&CPULR35902::PR_5A, this);
+    m_prefixHandler[0x5B] = std::bind(&CPULR35902::PR_5B, this);
+    m_prefixHandler[0x5C] = std::bind(&CPULR35902::PR_5C, this);
+    m_prefixHandler[0x5D] = std::bind(&CPULR35902::PR_5D, this);
+    m_prefixHandler[0x5E] = std::bind(&CPULR35902::PR_5E, this);
+    m_prefixHandler[0x5F] = std::bind(&CPULR35902::PR_5F, this);
+    m_prefixHandler[0x60] = std::bind(&CPULR35902::PR_60, this);
+    m_prefixHandler[0x61] = std::bind(&CPULR35902::PR_61, this);
+    m_prefixHandler[0x62] = std::bind(&CPULR35902::PR_62, this);
+    m_prefixHandler[0x63] = std::bind(&CPULR35902::PR_63, this);
+    m_prefixHandler[0x64] = std::bind(&CPULR35902::PR_64, this);
+    m_prefixHandler[0x65] = std::bind(&CPULR35902::PR_65, this);
+    m_prefixHandler[0x66] = std::bind(&CPULR35902::PR_66, this);
+    m_prefixHandler[0x67] = std::bind(&CPULR35902::PR_67, this);
+    m_prefixHandler[0x68] = std::bind(&CPULR35902::PR_68, this);
+    m_prefixHandler[0x69] = std::bind(&CPULR35902::PR_69, this);
+    m_prefixHandler[0x6A] = std::bind(&CPULR35902::PR_6A, this);
+    m_prefixHandler[0x6B] = std::bind(&CPULR35902::PR_6B, this);
+    m_prefixHandler[0x6C] = std::bind(&CPULR35902::PR_6C, this);
+    m_prefixHandler[0x6D] = std::bind(&CPULR35902::PR_6D, this);
+    m_prefixHandler[0x6E] = std::bind(&CPULR35902::PR_6E, this);
+    m_prefixHandler[0x6F] = std::bind(&CPULR35902::PR_6F, this);
+    m_prefixHandler[0x70] = std::bind(&CPULR35902::PR_70, this);
+    m_prefixHandler[0x71] = std::bind(&CPULR35902::PR_71, this);
+    m_prefixHandler[0x72] = std::bind(&CPULR35902::PR_72, this);
+    m_prefixHandler[0x73] = std::bind(&CPULR35902::PR_73, this);
+    m_prefixHandler[0x74] = std::bind(&CPULR35902::PR_74, this);
+    m_prefixHandler[0x75] = std::bind(&CPULR35902::PR_75, this);
+    m_prefixHandler[0x76] = std::bind(&CPULR35902::PR_76, this);
+    m_prefixHandler[0x77] = std::bind(&CPULR35902::PR_77, this);
+    m_prefixHandler[0x78] = std::bind(&CPULR35902::PR_78, this);
+    m_prefixHandler[0x79] = std::bind(&CPULR35902::PR_79, this);
+    m_prefixHandler[0x7A] = std::bind(&CPULR35902::PR_7A, this);
+    m_prefixHandler[0x7B] = std::bind(&CPULR35902::PR_7B, this);
+    m_prefixHandler[0x7C] = std::bind(&CPULR35902::PR_7C, this);
+    m_prefixHandler[0x7D] = std::bind(&CPULR35902::PR_7D, this);
+    m_prefixHandler[0x7E] = std::bind(&CPULR35902::PR_7E, this);
+    m_prefixHandler[0x7F] = std::bind(&CPULR35902::PR_7F, this);
+    m_prefixHandler[0x80] = std::bind(&CPULR35902::PR_80, this);
+    m_prefixHandler[0x81] = std::bind(&CPULR35902::PR_81, this);
+    m_prefixHandler[0x82] = std::bind(&CPULR35902::PR_82, this);
+    m_prefixHandler[0x83] = std::bind(&CPULR35902::PR_83, this);
+    m_prefixHandler[0x84] = std::bind(&CPULR35902::PR_84, this);
+    m_prefixHandler[0x85] = std::bind(&CPULR35902::PR_85, this);
+    m_prefixHandler[0x86] = std::bind(&CPULR35902::PR_86, this);
+    m_prefixHandler[0x87] = std::bind(&CPULR35902::PR_87, this);
+    m_prefixHandler[0x88] = std::bind(&CPULR35902::PR_88, this);
+    m_prefixHandler[0x89] = std::bind(&CPULR35902::PR_89, this);
+    m_prefixHandler[0x8A] = std::bind(&CPULR35902::PR_8A, this);
+    m_prefixHandler[0x8B] = std::bind(&CPULR35902::PR_8B, this);
+    m_prefixHandler[0x8C] = std::bind(&CPULR35902::PR_8C, this);
+    m_prefixHandler[0x8D] = std::bind(&CPULR35902::PR_8D, this);
+    m_prefixHandler[0x8E] = std::bind(&CPULR35902::PR_8E, this);
+    m_prefixHandler[0x8F] = std::bind(&CPULR35902::PR_8F, this);
+    m_prefixHandler[0x90] = std::bind(&CPULR35902::PR_90, this);
+    m_prefixHandler[0x91] = std::bind(&CPULR35902::PR_91, this);
+    m_prefixHandler[0x92] = std::bind(&CPULR35902::PR_92, this);
+    m_prefixHandler[0x93] = std::bind(&CPULR35902::PR_93, this);
+    m_prefixHandler[0x94] = std::bind(&CPULR35902::PR_94, this);
+    m_prefixHandler[0x95] = std::bind(&CPULR35902::PR_95, this);
+    m_prefixHandler[0x96] = std::bind(&CPULR35902::PR_96, this);
+    m_prefixHandler[0x97] = std::bind(&CPULR35902::PR_97, this);
+    m_prefixHandler[0x98] = std::bind(&CPULR35902::PR_98, this);
+    m_prefixHandler[0x99] = std::bind(&CPULR35902::PR_99, this);
+    m_prefixHandler[0x9A] = std::bind(&CPULR35902::PR_9A, this);
+    m_prefixHandler[0x9B] = std::bind(&CPULR35902::PR_9B, this);
+    m_prefixHandler[0x9C] = std::bind(&CPULR35902::PR_9C, this);
+    m_prefixHandler[0x9D] = std::bind(&CPULR35902::PR_9D, this);
+    m_prefixHandler[0x9E] = std::bind(&CPULR35902::PR_9E, this);
+    m_prefixHandler[0x9F] = std::bind(&CPULR35902::PR_9F, this);
+    m_prefixHandler[0xA0] = std::bind(&CPULR35902::PR_A0, this);
+    m_prefixHandler[0xA1] = std::bind(&CPULR35902::PR_A1, this);
+    m_prefixHandler[0xA2] = std::bind(&CPULR35902::PR_A2, this);
+    m_prefixHandler[0xA3] = std::bind(&CPULR35902::PR_A3, this);
+    m_prefixHandler[0xA4] = std::bind(&CPULR35902::PR_A4, this);
+    m_prefixHandler[0xA5] = std::bind(&CPULR35902::PR_A5, this);
+    m_prefixHandler[0xA6] = std::bind(&CPULR35902::PR_A6, this);
+    m_prefixHandler[0xA7] = std::bind(&CPULR35902::PR_A7, this);
+    m_prefixHandler[0xA8] = std::bind(&CPULR35902::PR_A8, this);
+    m_prefixHandler[0xA9] = std::bind(&CPULR35902::PR_A9, this);
+    m_prefixHandler[0xAA] = std::bind(&CPULR35902::PR_AA, this);
+    m_prefixHandler[0xAB] = std::bind(&CPULR35902::PR_AB, this);
+    m_prefixHandler[0xAC] = std::bind(&CPULR35902::PR_AC, this);
+    m_prefixHandler[0xAD] = std::bind(&CPULR35902::PR_AD, this);
+    m_prefixHandler[0xAE] = std::bind(&CPULR35902::PR_AE, this);
+    m_prefixHandler[0xAF] = std::bind(&CPULR35902::PR_AF, this);
+    m_prefixHandler[0xB0] = std::bind(&CPULR35902::PR_B0, this);
+    m_prefixHandler[0xB1] = std::bind(&CPULR35902::PR_B1, this);
+    m_prefixHandler[0xB2] = std::bind(&CPULR35902::PR_B2, this);
+    m_prefixHandler[0xB3] = std::bind(&CPULR35902::PR_B3, this);
+    m_prefixHandler[0xB4] = std::bind(&CPULR35902::PR_B4, this);
+    m_prefixHandler[0xB5] = std::bind(&CPULR35902::PR_B5, this);
+    m_prefixHandler[0xB6] = std::bind(&CPULR35902::PR_B6, this);
+    m_prefixHandler[0xB7] = std::bind(&CPULR35902::PR_B7, this);
+    m_prefixHandler[0xB8] = std::bind(&CPULR35902::PR_B8, this);
+    m_prefixHandler[0xB9] = std::bind(&CPULR35902::PR_B9, this);
+    m_prefixHandler[0xBA] = std::bind(&CPULR35902::PR_BA, this);
+    m_prefixHandler[0xBB] = std::bind(&CPULR35902::PR_BB, this);
+    m_prefixHandler[0xBC] = std::bind(&CPULR35902::PR_BC, this);
+    m_prefixHandler[0xBD] = std::bind(&CPULR35902::PR_BD, this);
+    m_prefixHandler[0xBE] = std::bind(&CPULR35902::PR_BE, this);
+    m_prefixHandler[0xBF] = std::bind(&CPULR35902::PR_BF, this);
+    m_prefixHandler[0xC0] = std::bind(&CPULR35902::PR_C0, this);
+    m_prefixHandler[0xC1] = std::bind(&CPULR35902::PR_C1, this);
+    m_prefixHandler[0xC2] = std::bind(&CPULR35902::PR_C2, this);
+    m_prefixHandler[0xC3] = std::bind(&CPULR35902::PR_C3, this);
+    m_prefixHandler[0xC4] = std::bind(&CPULR35902::PR_C4, this);
+    m_prefixHandler[0xC5] = std::bind(&CPULR35902::PR_C5, this);
+    m_prefixHandler[0xC6] = std::bind(&CPULR35902::PR_C6, this);
+    m_prefixHandler[0xC7] = std::bind(&CPULR35902::PR_C7, this);
+    m_prefixHandler[0xC8] = std::bind(&CPULR35902::PR_C8, this);
+    m_prefixHandler[0xC9] = std::bind(&CPULR35902::PR_C9, this);
+    m_prefixHandler[0xCA] = std::bind(&CPULR35902::PR_CA, this);
+    m_prefixHandler[0xCB] = std::bind(&CPULR35902::PR_CB, this);
+    m_prefixHandler[0xCC] = std::bind(&CPULR35902::PR_CC, this);
+    m_prefixHandler[0xCD] = std::bind(&CPULR35902::PR_CD, this);
+    m_prefixHandler[0xCE] = std::bind(&CPULR35902::PR_CE, this);
+    m_prefixHandler[0xCF] = std::bind(&CPULR35902::PR_CF, this);
+    m_prefixHandler[0xD0] = std::bind(&CPULR35902::PR_D0, this);
+    m_prefixHandler[0xD1] = std::bind(&CPULR35902::PR_D1, this);
+    m_prefixHandler[0xD2] = std::bind(&CPULR35902::PR_D2, this);
+    m_prefixHandler[0xD3] = std::bind(&CPULR35902::PR_D3, this);
+    m_prefixHandler[0xD4] = std::bind(&CPULR35902::PR_D4, this);
+    m_prefixHandler[0xD5] = std::bind(&CPULR35902::PR_D5, this);
+    m_prefixHandler[0xD6] = std::bind(&CPULR35902::PR_D6, this);
+    m_prefixHandler[0xD7] = std::bind(&CPULR35902::PR_D7, this);
+    m_prefixHandler[0xD8] = std::bind(&CPULR35902::PR_D8, this);
+    m_prefixHandler[0xD9] = std::bind(&CPULR35902::PR_D9, this);
+    m_prefixHandler[0xDA] = std::bind(&CPULR35902::PR_DA, this);
+    m_prefixHandler[0xDB] = std::bind(&CPULR35902::PR_DB, this);
+    m_prefixHandler[0xDC] = std::bind(&CPULR35902::PR_DC, this);
+    m_prefixHandler[0xDD] = std::bind(&CPULR35902::PR_DD, this);
+    m_prefixHandler[0xDE] = std::bind(&CPULR35902::PR_DE, this);
+    m_prefixHandler[0xDF] = std::bind(&CPULR35902::PR_DF, this);
+    m_prefixHandler[0xE0] = std::bind(&CPULR35902::PR_E0, this);
+    m_prefixHandler[0xE1] = std::bind(&CPULR35902::PR_E1, this);
+    m_prefixHandler[0xE2] = std::bind(&CPULR35902::PR_E2, this);
+    m_prefixHandler[0xE3] = std::bind(&CPULR35902::PR_E3, this);
+    m_prefixHandler[0xE4] = std::bind(&CPULR35902::PR_E4, this);
+    m_prefixHandler[0xE5] = std::bind(&CPULR35902::PR_E5, this);
+    m_prefixHandler[0xE6] = std::bind(&CPULR35902::PR_E6, this);
+    m_prefixHandler[0xE7] = std::bind(&CPULR35902::PR_E7, this);
+    m_prefixHandler[0xE8] = std::bind(&CPULR35902::PR_E8, this);
+    m_prefixHandler[0xE9] = std::bind(&CPULR35902::PR_E9, this);
+    m_prefixHandler[0xEA] = std::bind(&CPULR35902::PR_EA, this);
+    m_prefixHandler[0xEB] = std::bind(&CPULR35902::PR_EB, this);
+    m_prefixHandler[0xEC] = std::bind(&CPULR35902::PR_EC, this);
+    m_prefixHandler[0xED] = std::bind(&CPULR35902::PR_ED, this);
+    m_prefixHandler[0xEE] = std::bind(&CPULR35902::PR_EE, this);
+    m_prefixHandler[0xEF] = std::bind(&CPULR35902::PR_EF, this);
+    m_prefixHandler[0xF0] = std::bind(&CPULR35902::PR_F0, this);
+    m_prefixHandler[0xF1] = std::bind(&CPULR35902::PR_F1, this);
+    m_prefixHandler[0xF2] = std::bind(&CPULR35902::PR_F2, this);
+    m_prefixHandler[0xF3] = std::bind(&CPULR35902::PR_F3, this);
+    m_prefixHandler[0xF4] = std::bind(&CPULR35902::PR_F4, this);
+    m_prefixHandler[0xF5] = std::bind(&CPULR35902::PR_F5, this);
+    m_prefixHandler[0xF6] = std::bind(&CPULR35902::PR_F6, this);
+    m_prefixHandler[0xF7] = std::bind(&CPULR35902::PR_F7, this);
+    m_prefixHandler[0xF8] = std::bind(&CPULR35902::PR_F8, this);
+    m_prefixHandler[0xF9] = std::bind(&CPULR35902::PR_F9, this);
+    m_prefixHandler[0xFA] = std::bind(&CPULR35902::PR_FA, this);
+    m_prefixHandler[0xFB] = std::bind(&CPULR35902::PR_FB, this);
+    m_prefixHandler[0xFC] = std::bind(&CPULR35902::PR_FC, this);
+    m_prefixHandler[0xFD] = std::bind(&CPULR35902::PR_FD, this);
+    m_prefixHandler[0xFE] = std::bind(&CPULR35902::PR_FE, this);
+    m_prefixHandler[0xFF] = std::bind(&CPULR35902::PR_FF, this);
 }
 

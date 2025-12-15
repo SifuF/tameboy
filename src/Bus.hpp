@@ -48,6 +48,10 @@ T Bus::read(uint16_t addr) {
         return 0x0001'1111; // TODO - buttons
     }
 
+    if (addr == 0xFFE1) {
+        //return 0x26; // TODO - remove
+    }
+
     if constexpr (sizeof(T)==1) {
         return map[addr];
     }

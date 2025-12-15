@@ -47,16 +47,19 @@ private:
     Register PC;
 
     uint64_t T = 0;
-    bool halt = false;
-    bool stop = false; 
-    bool eiPending = false;
-    bool interruptMasterEnable = false;
-    Bus* bus;
+    bool m_halt = false;
+    bool m_stop = false; 
+    bool m_eiPending = false;
+    bool m_interruptMasterEnable = false;
+    Bus* m_bus;
 
-    std::array<std::function<void()>, 256> opcodeHandler;
-    std::array<std::function<void()>, 256> prefixHandler;
+    std::array<std::function<void()>, 256> m_opcodeHandler;
+    std::array<std::function<void()>, 256> m_prefixHandler;
 
     bool m_debug = false;
+    uint64_t m_instructionCounter{};
+    uint64_t m_instructionCountOfInterest{std::numeric_limits<uint64_t>::max()};
+    uint64_t m_pcOfInterest{std::numeric_limits<uint64_t>::max()};
 
     void logInstruction(std::string str, bool newLine = true) {
         std::cout << std::hex << str;
