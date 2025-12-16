@@ -13,12 +13,11 @@ Bus::Bus() : m_boot(std::make_unique<uint8_t[]>(0x100)),
     std::memset((char*)m_map.get(), 0, 0x10000);
 
     readFile((char*)m_boot.get(), "../roms/DMG_ROM.bin");
-    readFile((char*)m_map.get(), "../roms/tetris.bin");
-    //readFile((char*)m_map.get(), "../roms/tetris_no_vblank.bin");
+    //readFile((char*)m_map.get(), "../roms/tetris.bin");
     //readFile((char*)m_map.get(), "../roms/cpu_instrs.gb");
     //readFile((char*)m_map.get(), "../roms/tennis.bin");
     //readFile((char*)m_map.get(), "../roms/Alleyway.bin");
-    //readFile((char*)m_map.get(), "../roms/dr.bin");
+    readFile((char*)m_map.get(), "../roms/dr.bin");
     //readFile((char*)m_map.get(), "../roms/spot.gb");
     //readFile((char*)m_map.get(), "../roms/taz.gb");
 
@@ -96,6 +95,7 @@ void Bus::start()
     };
 
     uint64_t instructionCounter{};
+    uint64_t cycleCounter{};
     
     uint64_t timerCycleCounter{};
     uint64_t dividerCycleCounter{};
@@ -110,6 +110,7 @@ void Bus::start()
         const auto cycles = cpu.fetchDecodeExecute();
 
         if (instructionCounter % 70 == 0) {
+        //if (cycleCounter % 456 == 0) {
             ppu.tick(cycles);
         }
         if (instructionCounter % 10000 == 0) {
@@ -118,6 +119,7 @@ void Bus::start()
 
         instructionCounter++;
         
+        cycleCounter += cycles;
         timerCycleCounter += cycles;
         dividerCycleCounter += cycles;
         serialCycleCounter += cycles;

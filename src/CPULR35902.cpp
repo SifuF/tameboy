@@ -17,7 +17,10 @@ CPULR35902::CPULR35902(Bus* bus) : m_bus(bus)
     //0x2ca: call UpdateAudio
 
     //0x2cd: ldh a, [hJoyHeld]
-    m_pcOfInterest = 0x2cd; // TODO - debug
+    //m_pcOfInterest = 0x2cd; // TODO - debug
+    //m_pcOfInterest = 0x0a9b;
+    //m_pcOfInterest = 0x2ae4;
+    //m_pcOfInterest = 0x17e;
 }
 
 void CPULR35902::printState()
@@ -170,6 +173,7 @@ void CPULR35902::processInterrupts()
 
 uint64_t CPULR35902::fetchDecodeExecute()
 {
+    
     const uint64_t Tstart = T;
     
     if ((PC.w == m_pcOfInterest) || (m_instructionCounter == m_instructionCountOfInterest)) {
@@ -208,6 +212,13 @@ uint64_t CPULR35902::fetchDecodeExecute()
                     std::cout << std::hex << "0x" << addr << ": " << (int)map[addr] << std::endl;
 
                 }
+                else if (str[0] == 'c') {
+                    const auto end = str.find_first_of(' ');
+                    m_pcOfInterest = std::stoi(str.substr(1, end), nullptr, 16);
+                    m_debug = false;
+                    break;
+
+                }
                 else if (str == "") {
                     break;
                 }
@@ -238,6 +249,10 @@ uint64_t CPULR35902::fetchDecodeExecute()
         m_eiPending = false;
         skippingInterrupt = true;
     }
+
+    auto* map = m_bus->getMap();
+    auto c1 = map[0xcff9];
+    auto c2 = map[0xcffa];
 
     if(m_halt || m_stop)
         return 0;
@@ -1486,7 +1501,7 @@ void CPULR35902::OP_C0() {
     else {
         T += 20;
         PC.w = m_bus->read<uint16_t>(SP.w);
-        SP.w++;
+        SP.w += 2;
     }
     if (m_debug) logInstruction("RET NZ");
 }
@@ -1636,7 +1651,7 @@ void CPULR35902::OP_D0() {
     else {
         T += 20;
         PC.w = m_bus->read<uint16_t>(SP.w);
-        SP.w++;
+        SP.w += 2;
     }
     if (m_debug) logInstruction("RET NC");
 }
