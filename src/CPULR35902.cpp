@@ -254,7 +254,7 @@ uint64_t CPULR35902::fetchDecodeExecute()
     auto c1 = map[0xcff9];
     auto c2 = map[0xcffa];
 
-    if(m_halt || m_stop)
+    if (m_halt || m_stop)
         return 0;
  
     if (m_debug)
@@ -306,18 +306,18 @@ void CPULR35902::OP_02() {
 void CPULR35902::OP_03() {
     T += 8;
     BC.w++;
-    if (m_debug) logInstruction("BC");
+    if (m_debug) logInstruction("INC BC");
 }
 void CPULR35902::OP_04() {
     T += 4;
-    const bool half = (BC.left == 0xF);
+    const bool half = ((BC.left & 0x0F) == 0x0F);
     BC.left++;
     setFlags((BC.left == 0), 0, half, -1);
     if (m_debug) logInstruction("INC B");
 }
 void CPULR35902::OP_05() {
     T += 4;
-    const bool half = (BC.left == 0x0);
+    const bool half = ((BC.left & 0x0F) == 0);
     BC.left--;
     setFlags((BC.left == 0), 1, half, -1);
     if (m_debug) logInstruction("DEC B");
@@ -362,14 +362,14 @@ void CPULR35902::OP_0B() {
 }
 void CPULR35902::OP_0C() {
     T += 4;
-    const bool half = (BC.right == 0xF);
+    const bool half = ((BC.right & 0x0F) == 0x0F);
     BC.right++;
     setFlags((BC.right == 0), 0, half, -1);
     if (m_debug) logInstruction("INC C");
 }
 void CPULR35902::OP_0D() {
     T += 4;
-    const bool half = (BC.right == 0x0);
+    const bool half = ((BC.right & 0x0F) == 0);
     BC.right--;
     setFlags((BC.right == 0), 1, half, -1);
     if (m_debug) logInstruction("DEC C");
@@ -412,14 +412,14 @@ void CPULR35902::OP_13() {
 }
 void CPULR35902::OP_14() {
     T += 4;
-    const bool half = (DE.left == 0xF);
+    const bool half = ((DE.left & 0x0F) == 0x0F);
     DE.left++;
     setFlags((DE.left == 0), 0, half, -1);
     if (m_debug) logInstruction("INC D");
 }
 void CPULR35902::OP_15() {
     T += 4;
-    const bool half = (DE.left == 0x0);
+    const bool half = ((DE.left & 0x0F) == 0);
     DE.left--;
     setFlags((DE.left == 0), 1, half, -1);
     if (m_debug) logInstruction("DEC D");
@@ -465,14 +465,14 @@ void CPULR35902::OP_1B() {
 }
 void CPULR35902::OP_1C() {
     T += 4;
-    const bool half = (DE.right == 0xF);
+    const bool half = ((DE.right & 0x0F) == 0x0F);
     DE.right++;
     setFlags((DE.right == 0), 0, half, -1);
     if (m_debug) logInstruction("INC E");
 }
 void CPULR35902::OP_1D() {
     T += 4;
-    const bool half = (DE.right == 0x0);
+    const bool half = ((DE.right & 0x0F) == 0);
     DE.right--;
     setFlags((DE.right == 0), 1, half, -1);
     if (m_debug) logInstruction("DEC E");
@@ -523,14 +523,14 @@ void CPULR35902::OP_23() {
 }
 void CPULR35902::OP_24() {
     T += 4;
-    const bool half = (HL.left == 0xF);
+    const bool half = ((HL.left & 0x0F) == 0x0F);
     HL.left++;
     setFlags((HL.left == 0), 0, half, -1);
     if (m_debug) logInstruction("INC H");
 }
 void CPULR35902::OP_25() {
     T += 4;
-    const bool half = (HL.left == 0x0);
+    const bool half = ((HL.left & 0x0F) == 0);
     HL.left--;
     setFlags((HL.left == 0), 1, half, -1);
     if (m_debug) logInstruction("DEC H");
@@ -541,14 +541,56 @@ void CPULR35902::OP_26() {
     PC.w++;
     if (m_debug) logInstruction("LD H, " + toHexString(HL.left));
 }
-void CPULR35902::OP_27() {
+void CPULR35902::OP_27() { // TODO
     T += 4;
+    /*
     const uint8_t quo = AF.left / 100;
     const uint8_t rem = AF.left % 100;
     const uint8_t lsd = rem % 10;
     const uint8_t msd = rem / 10;
     AF.left = (msd << 4) | lsd;
     setFlags((AF.left == 0), -1, 0, (quo > 0));
+    */
+    constexpr uint8_t FLAG_Z = 0x80;  // bit 7
+    constexpr uint8_t FLAG_N = 0x40;  // bit 6
+    constexpr uint8_t FLAG_H = 0x20;  // bit 5
+    constexpr uint8_t FLAG_C = 0x10;  // bit 4
+
+    uint8_t a = AF.left;
+    uint8_t correction = 0;
+    bool carry = (AF.right & FLAG_C) != 0;  // old C flag
+
+    // Check previous operation: N flag
+    if (!(AF.right & FLAG_N)) {  // last op was ADD
+        if ((AF.right & FLAG_H) || (a & 0x0F) > 9) {
+            correction |= 0x06;
+        }
+        if (carry || a > 0x99) {
+            correction |= 0x60;
+            carry = true;
+        }
+        a += correction;
+    }
+    else {  // last op was SUB
+        if (AF.right & FLAG_H) {
+            correction |= 0x06;
+        }
+        if (carry) {
+            correction |= 0x60;
+        }
+        a -= correction;
+    }
+
+    // Set flags
+    uint8_t f = AF.right;
+    f &= FLAG_N;               // preserve N
+    f |= (a == 0 ? FLAG_Z : 0); // Z
+    f &= ~FLAG_H;               // H always cleared
+    f = (f & ~FLAG_C) | (carry ? FLAG_C : 0); // update C
+
+    AF.left = a;
+    AF.right = f;
+
     if (m_debug) logInstruction("DAA");
 }
 void CPULR35902::OP_28() {
@@ -585,14 +627,14 @@ void CPULR35902::OP_2B() {
 }
 void CPULR35902::OP_2C() {
     T += 4;
-    const bool half = (HL.right == 0xF);
+    const bool half = ((HL.right & 0x0F) == 0x0F);
     HL.right++;
     setFlags((HL.right == 0), 0, half, -1);
     if (m_debug) logInstruction("INC L");
 }
 void CPULR35902::OP_2D() {
     T += 4;
-    const bool half = (HL.right == 0x0);
+    const bool half = ((HL.right & 0x0F) == 0);
     HL.right--;
     setFlags((HL.right == 0), 1, half, -1);
     if (m_debug) logInstruction("DEC L");
@@ -641,8 +683,8 @@ void CPULR35902::OP_33() {
 }
 void CPULR35902::OP_34() {
     T += 12;
-    auto value = m_bus->read<uint16_t>(HL.w);
-    const bool half = (value == 0xF);
+    auto value = m_bus->read<uint8_t>(HL.w);
+    const bool half = ((value & 0x0F) == 0x0F);
     value++;
     m_bus->write<uint8_t>(HL.w, value);
     setFlags((value == 0), 0, half, -1);
@@ -650,8 +692,8 @@ void CPULR35902::OP_34() {
 }
 void CPULR35902::OP_35() {
     T += 12;
-    auto value = m_bus->read<uint16_t>(HL.w);
-    const bool half = (value == 0x0);
+    auto value = m_bus->read<uint8_t>(HL.w);
+    const bool half = ((value & 0x0F) == 0);
     value--;
     m_bus->write<uint8_t>(HL.w, value);
     setFlags((value == 0), 1, half, -1);
@@ -703,14 +745,14 @@ void CPULR35902::OP_3B() {
 }
 void CPULR35902::OP_3C() {
     T += 4;
-    const bool half = (AF.left == 0xF);
+    const bool half = ((AF.left & 0x0F) == 0x0F);
     AF.left++;
     setFlags((AF.left == 0), 0, half, -1);
     if (m_debug) logInstruction("INC A");
 }
 void CPULR35902::OP_3D() {
     T += 4;
-    const bool half = (AF.left == 0x0);
+    const bool half = ((AF.left & 0x0F) == 0);
     AF.left--;
     setFlags((AF.left == 0), 1, half, -1);
     if (m_debug) logInstruction("DEC A");
@@ -1889,6 +1931,7 @@ void CPULR35902::OP_F1() {
     T += 12;
     AF.w = m_bus->read<uint16_t>(SP.w);
     SP.w += 2;
+    AF.right &= 0xF0;
     if (m_debug) logInstruction("POP AF");
 }
 void CPULR35902::OP_F2() {

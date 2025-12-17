@@ -20,9 +20,8 @@ class CPULR35902 {
 public:
     CPULR35902(Bus* bus);
     void reset(); 
-
     uint64_t fetchDecodeExecute();
-
+    void wake() { m_halt = false; }
     void printState();
 
 private:
@@ -47,6 +46,7 @@ private:
     Register PC;
 
     uint64_t T = 0;
+
     bool m_halt = false;
     bool m_stop = false; 
     bool m_eiPending = false;

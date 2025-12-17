@@ -59,6 +59,7 @@ void Bus::start()
 
                 const auto newInterruptFlag = Utils::setBit(read<uint8_t>(0xFF0F), static_cast<int>(Interrupt::Timer));
                 write<uint8_t>(0xFF0F, newInterruptFlag);
+                cpu.wake();
                 LOG("Timer interrupt");
             }
             else {
