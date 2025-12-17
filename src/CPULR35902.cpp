@@ -19,7 +19,7 @@ CPULR35902::CPULR35902(Bus* bus) : m_bus(bus)
     //0x2cd: ldh a, [hJoyHeld]
     //m_pcOfInterest = 0x2cd; // TODO - debug
     //m_pcOfInterest = 0x0a9b;
-    //m_pcOfInterest = 0x100;
+    m_pcOfInterest = 0x100;
     //m_pcOfInterest = 0x17e;
 }
 
@@ -171,83 +171,82 @@ void CPULR35902::processInterrupts()
     }
 }
 
+void CPULR35902::processDebugger()
+{
+    static bool helped = false;
+    if (!helped) {
+        std::cout << "TameBoy Debugger v0.1\n\tX : run X instructions (dec)\n\tEnter : step single instruction\n\ts : dump CPU state\n\tpX : increment PC by X (0-9)\n\td : draw tile maps\n\tmX : print byte (hex)\n";
+        helped = true;
+    }
+    while (true) {
+        try {
+            std::cout << ">>> ";
+            std::string str{};
+            std::getline(std::cin, str);
+            if (str == "s") {
+                printState();
+            }
+            else if (str[0] == 'p') {
+                if (std::isdigit(str[1])) {
+                    PC.w += str[1] - '0';
+                }
+            }
+            else if (str == "d") {
+                std::cout << "tile maps drawn" << std::endl;
+                m_bus->forceDraw();
+            }
+            else if (str[0] == 'm') {
+                const auto end = str.find_first_of(' ');
+                const auto addr = std::stoi(str.substr(1, end), nullptr, 16);
+                const auto& map = m_bus->getMap();
+                std::cout << std::hex << "0x" << addr << ": " << (int)map[addr] << std::endl;
+
+            }
+            else if (str[0] == 'c') {
+                const auto end = str.find_first_of(' ');
+                m_pcOfInterest = std::stoi(str.substr(1, end), nullptr, 16);
+                m_debug = false;
+                break;
+
+            }
+            else if (str == "") {
+                break;
+            }
+            else {
+                const auto numInstructions = std::stoi(str);
+                std::cout << "running " << std::dec << numInstructions << std::hex << " instructions" << std::endl;
+                m_instructionCountOfInterest = m_instructionCounter + numInstructions;
+                m_debug = false;
+                break;
+            }
+        }
+        catch (...) {
+            std::cout << "unknown debugger command" << std::endl;
+        }
+    }
+
+    std::cout << std::dec << m_instructionCounter << ": "
+        << std::hex << "PC=" << static_cast<int>(PC.w) << " ";
+}
+
 uint64_t CPULR35902::fetchDecodeExecute()
 {
-    
     const uint64_t Tstart = T;
-    
+
     if ((PC.w == m_pcOfInterest) || (m_instructionCounter == m_instructionCountOfInterest)) {
         m_debug = true;
     }
-
-    static bool skippingInterrupt = false;
-
+    
     if (m_debug) {
-        static bool helped = false;
-        if (!helped) {
-            std::cout << "TameBoy Debugger v0.1\n\tX : run X instructions (dec)\n\tEnter : step single instruction\n\ts : dump CPU state\n\tpX : increment PC by X (0-9)\n\td : draw tile maps\n\tmX : print byte (hex)\n";
-            helped = true;
-        }
-        while (true) {
-            try {
-                std::cout << ">>> ";
-                std::string str{};
-                std::getline(std::cin, str);
-                if (str == "s") {
-                    printState();
-                }
-                else if (str[0] == 'p') {
-                    if (std::isdigit(str[1])) {
-                        PC.w += str[1] - '0';
-                    }
-                }
-                else if (str == "d") {
-                    std::cout << "tile maps drawn" << std::endl;
-                    m_bus->forceDraw();
-                }
-                else if (str[0] == 'm') {
-                    const auto end = str.find_first_of(' ');
-                    const auto addr = std::stoi(str.substr(1, end), nullptr, 16);
-                    const auto& map = m_bus->getMap();
-                    std::cout << std::hex << "0x" << addr << ": " << (int)map[addr] << std::endl;
-
-                }
-                else if (str[0] == 'c') {
-                    const auto end = str.find_first_of(' ');
-                    m_pcOfInterest = std::stoi(str.substr(1, end), nullptr, 16);
-                    m_debug = false;
-                    break;
-
-                }
-                else if (str == "") {
-                    break;
-                }
-                else {
-                    const auto numInstructions = std::stoi(str);
-                    std::cout << "running " << std::dec << numInstructions << std::hex << " instructions" << std::endl;
-                    m_instructionCountOfInterest = m_instructionCounter + numInstructions;
-                    m_debug = false;
-                    break;
-                }
-            }
-            catch(...) {
-                std::cout << "unknown debugger command" << std::endl;
-            }
-        }
+        processDebugger();
     }
 
-    if (m_debug)
-        std::cout << std::dec << m_instructionCounter << ": ";
-
-    if (m_interruptMasterEnable && !skippingInterrupt)
+    if (m_interruptMasterEnable)
         processInterrupts();
-
-    skippingInterrupt = false;
 
     if (m_eiPending) {
         m_interruptMasterEnable = true;
         m_eiPending = false;
-        skippingInterrupt = true;
     }
 
     auto* map = m_bus->getMap();
@@ -256,9 +255,6 @@ uint64_t CPULR35902::fetchDecodeExecute()
 
     if (m_halt || m_stop)
         return 0;
- 
-    if (m_debug)
-        std::cout << std::hex << "PC=" << static_cast<int>(PC.w) << " ";
 
     const auto instruction = m_bus->read<uint8_t>(PC.w);
     PC.w++;
@@ -494,7 +490,7 @@ void CPULR35902::OP_1F() {
 void CPULR35902::OP_20() { // JP NZ, e8
     const auto relative = m_bus->read<uint8_t>(PC.w);
     PC.w++;
-    const bool zero = getFlag(Flag::Z); 
+    const auto zero = getFlag(Flag::Z); 
     if(zero) {
         T += 8;
     }
@@ -596,7 +592,7 @@ void CPULR35902::OP_27() { // TODO
 void CPULR35902::OP_28() {
     const auto relative = m_bus->read<uint8_t>(PC.w);
     PC.w++;
-    const bool zero = getFlag(Flag::Z); 
+    const auto zero = getFlag(Flag::Z); 
     if(zero) {
         T += 12;
         PC.w += static_cast<int8_t>(relative);
@@ -1536,7 +1532,7 @@ void CPULR35902::OP_BF() {
     if (m_debug) logInstruction("CP A, A");
 }
 void CPULR35902::OP_C0() {
-    const bool zero = getFlag(Flag::Z);
+    const auto zero = getFlag(Flag::Z);
     if(zero) {
         T += 8;
     }
@@ -1556,7 +1552,7 @@ void CPULR35902::OP_C1() {
 void CPULR35902::OP_C2() {
     const auto addr = m_bus->read<uint16_t>(PC.w);
     PC.w += 2;
-    const bool zero = getFlag(Flag::Z);
+    const auto zero = getFlag(Flag::Z);
     if(zero) {
         T += 12;
     }
@@ -1574,7 +1570,7 @@ void CPULR35902::OP_C3() {
 void CPULR35902::OP_C4() {
     const auto addr = m_bus->read<uint16_t>(PC.w);
     PC.w += 2;
-    const bool zero = getFlag(Flag::Z);
+    const auto zero = getFlag(Flag::Z);
     if(zero) {
         T += 12;
     }
@@ -1610,7 +1606,7 @@ void CPULR35902::OP_C7() {
     if (m_debug) logInstruction("RST $00");
 }
 void CPULR35902::OP_C8() {
-    const bool zero = getFlag(Flag::Z);
+    const auto zero = getFlag(Flag::Z);
     if(zero) {
         T += 20;
         PC.w = m_bus->read<uint16_t>(SP.w);
@@ -1630,7 +1626,7 @@ void CPULR35902::OP_C9() {
 void CPULR35902::OP_CA() {
     const auto addr = m_bus->read<uint16_t>(PC.w);
     PC.w += 2;
-    const bool zero = getFlag(Flag::Z);
+    const auto zero = getFlag(Flag::Z);
     if(zero) {
         T += 16;
         PC.w = addr;
@@ -1647,7 +1643,7 @@ void CPULR35902::OP_CB() {
 void CPULR35902::OP_CC() {
     const auto addr = m_bus->read<uint16_t>(PC.w);
     PC.w += 2;
-    const bool zero = getFlag(Flag::Z);
+    const auto zero = getFlag(Flag::Z);
     if(zero) {
         T += 24;
         SP.w -= 2;
@@ -2482,331 +2478,394 @@ void CPULR35902::PR_3F() {
 }
 void CPULR35902::PR_40() {
     T += 8;
-    setFlags(!(BC.left & 0b00000001), 0, 1, -1);
+    const auto zero = (BC.left & 0b00000001) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 0, B");
 }
 void CPULR35902::PR_41() {
     T += 8;
-    setFlags(!(BC.right & 0b00000001), 0, 1, -1);
+    const auto zero = (BC.right & 0b00000001) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 0, C");
 }
 void CPULR35902::PR_42() {
     T += 8;
-    setFlags(!(DE.left & 0b00000001), 0, 1, -1);
+    const auto zero = (DE.left & 0b00000001) == 0;
     if (m_debug) logInstruction("BIT 0, D");
 }
 void CPULR35902::PR_43() {
     T += 8;
-    setFlags(!(DE.right & 0b00000001), 0, 1, -1);
+    const auto zero = (DE.right & 0b00000001) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 0, E");
 }
 void CPULR35902::PR_44() {
     T += 8;
-    setFlags(!(HL.left & 0b00000001), 0, 1, -1);
+    const auto zero = (HL.left & 0b00000001) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 0, H");
 }
 void CPULR35902::PR_45() {
     T += 8;
-    setFlags(!(HL.right & 0b00000001), 0, 1, -1);
+    const auto zero = (HL.right & 0b00000001) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 0, L");
 }
 void CPULR35902::PR_46() {
     T += 8;
     const auto value = m_bus->read<uint8_t>(HL.w);
-    setFlags(!(value & 0b00000001), 0, 1, -1);
+    const auto zero = (value & 0b00000001) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 0, (HL)");
 }
 void CPULR35902::PR_47() {
     T += 8;
-    setFlags(!(AF.left & 0b00000001), 0, 1, -1);
+    const auto zero = (AF.left & 0b00000001) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 0, A");
 }
 
 void CPULR35902::PR_48() {
     T += 8;
-    setFlags(!(BC.left & 0b00000010), 0, 1, -1);
+    const auto zero = (BC.left & 0b00000010) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 1, B");
 }
 void CPULR35902::PR_49() {
     T += 8;
-    setFlags(!(BC.right & 0b00000010), 0, 1, -1);
+    const auto zero = (BC.right & 0b00000010) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 1, C");
 }
 void CPULR35902::PR_4A() {
     T += 8;
-    setFlags(!(DE.left & 0b00000010), 0, 1, -1);
+    const auto zero = (DE.left & 0b00000010) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 1, D");
 }
 void CPULR35902::PR_4B() {
     T += 8;
-    setFlags(!(DE.right & 0b00000010), 0, 1, -1);
+    const auto zero = (DE.right & 0b00000010) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 1, E");
 }
 void CPULR35902::PR_4C() {
     T += 8;
-    setFlags(!(HL.left & 0b00000010), 0, 1, -1);
+    const auto zero = (HL.left & 0b00000010) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 1, H");
 }
 void CPULR35902::PR_4D() {
     T += 8;
-    setFlags(!(HL.right & 0b00000010), 0, 1, -1);
+    const auto zero = (HL.right & 0b00000010) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 1, L");
 }
 void CPULR35902::PR_4E() {
     T += 8;
     const auto value = m_bus->read<uint8_t>(HL.w);
-    setFlags(!(value & 0b00000010), 0, 1, -1);
+    const auto zero = (value & 0b00000010) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 1, (HL)");
 }
 void CPULR35902::PR_4F() {
     T += 8;
-    setFlags(!(AF.left & 0b00000010), 0, 1, -1);
+    const auto zero = (AF.left & 0b00000010) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 1, A");
 }
 void CPULR35902::PR_50() {
     T += 8;
-    setFlags(!(BC.left & 0b00000100), 0, 1, -1);
+    const auto zero = (BC.left & 0b00000100) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 2, B");
 }
 void CPULR35902::PR_51() {
     T += 8;
-    setFlags(!(BC.right & 0b00000100), 0, 1, -1);
+    const auto zero = (BC.right & 0b00000100) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 2, C");
 }
 void CPULR35902::PR_52() {
     T += 8;
-    setFlags(!(DE.left & 0b00000100), 0, 1, -1);
+    const auto zero = (DE.left & 0b00000100) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 2, D");
 }
 void CPULR35902::PR_53() {
     T += 8;
-    setFlags(!(DE.right & 0b00000100), 0, 1, -1);
+    const auto zero = (DE.right & 0b00000100) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 2, E");
 }
 void CPULR35902::PR_54() {
     T += 8;
-    setFlags(!(HL.left & 0b00000100), 0, 1, -1);
+    const auto zero = (HL.left & 0b00000100) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 2, H");
 }
 void CPULR35902::PR_55() {
     T += 8;
-    setFlags(!(HL.right & 0b00000100), 0, 1, -1);
+    const auto zero = (HL.right & 0b00000100) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 2, L");
 }
 void CPULR35902::PR_56() {
     T += 8;
     const auto value = m_bus->read<uint8_t>(HL.w);
-    setFlags(!(value & 0b00000100), 0, 1, -1);
+    const auto zero = (value & 0b00000100) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 2, (HL)");
 }
 void CPULR35902::PR_57() {
     T += 8;
-    setFlags(!(AF.left & 0b00000100), 0, 1, -1);
+    const auto zero = (AF.left & 0b00000100) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 2, A");
 }
 void CPULR35902::PR_58() {
     T += 8;
-    setFlags(!(BC.left & 0b00001000), 0, 1, -1);
+    const auto zero = (BC.left & 0b00001000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 3, B");
 }
 void CPULR35902::PR_59() {
     T += 8;
-    setFlags(!(BC.right & 0b00001000), 0, 1, -1);
+    const auto zero = (BC.right & 0b00001000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 3, C");
 }
 void CPULR35902::PR_5A() {
     T += 8;
-    setFlags(!(DE.left & 0b00001000), 0, 1, -1);
+    const auto zero = (DE.left & 0b00001000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 3, D");
 }
 void CPULR35902::PR_5B() {
     T += 8;
-    setFlags(!(DE.right & 0b00001000), 0, 1, -1);
+    const auto zero = (DE.right & 0b00001000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 3, E");
 }
 void CPULR35902::PR_5C() {
     T += 8;
-    setFlags(!(HL.left & 0b00001000), 0, 1, -1);
+    const auto zero = (HL.left & 0b00001000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 3, H");
 }
 void CPULR35902::PR_5D() {
     T += 8;
-    setFlags(!(HL.right & 0b00001000), 0, 1, -1);
+    const auto zero = (HL.right & 0b00001000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 3, L");
 }
 void CPULR35902::PR_5E() {
     T += 8;
     const auto value = m_bus->read<uint8_t>(HL.w);
-    setFlags(!(value & 0b00001000), 0, 1, -1);
+    const auto zero = (value & 0b00001000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 3, (HL)");
 }
 void CPULR35902::PR_5F() {
     T += 8;
-    setFlags(!(AF.left & 0b00001000), 0, 1, -1);
+    const auto zero = (AF.left & 0b00001000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 3, A");
 }
 void CPULR35902::PR_60() {
     T += 8;
-    setFlags(!(BC.left & 0b00010000), 0, 1, -1);
+    const auto zero = (BC.left & 0b00010000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 4, B");
 }
 void CPULR35902::PR_61() {
     T += 8;
-    setFlags(!(BC.right & 0b00010000), 0, 1, -1);
+    const auto zero = (BC.right & 0b00010000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 4, C");
 }
 void CPULR35902::PR_62() {
     T += 8;
-    setFlags(!(DE.left & 0b00010000), 0, 1, -1);
+    const auto zero = (DE.left & 0b00010000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 4, D");
 }
 void CPULR35902::PR_63() {
     T += 8;
-    setFlags(!(DE.right & 0b00010000), 0, 1, -1);
+    const auto zero = (DE.right & 0b00010000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 4, E");
 }
 void CPULR35902::PR_64() {
     T += 8;
-    setFlags(!(HL.left & 0b00010000), 0, 1, -1);
+    const auto zero = (HL.left & 0b00010000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 4, H");
 }
 void CPULR35902::PR_65() {
     T += 8;
-    setFlags(!(HL.right & 0b00010000), 0, 1, -1);
+    const auto zero = (HL.right & 0b00010000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 4, L");
 }
 void CPULR35902::PR_66() {
     T += 8;
     const auto value = m_bus->read<uint8_t>(HL.w);
-    setFlags(!(value & 0b00010000), 0, 1, -1);
+    const auto zero = (value & 0b00010000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 4, (HL)");
 }
 void CPULR35902::PR_67() {
     T += 8;
-    setFlags(!(AF.left & 0b00010000), 0, 1, -1);
+    const auto zero = (AF.left & 0b00010000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 4, A");
 }
 void CPULR35902::PR_68() {
     T += 8;
-    setFlags(!(BC.left & 0b00100000), 0, 1, -1);
+    const auto zero = (BC.left & 0b00100000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 5, B");
 }
 void CPULR35902::PR_69() {
     T += 8;
-    setFlags(!(BC.right & 0b00100000), 0, 1, -1);
+    const auto zero = (BC.right & 0b00100000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 5, C");
 }
 void CPULR35902::PR_6A() {
     T += 8;
-    setFlags(!(DE.left & 0b00100000), 0, 1, -1);
+    const auto zero = (DE.left & 0b00100000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 5, D");
 }
 void CPULR35902::PR_6B() {
     T += 8;
-    setFlags(!(DE.right & 0b00100000), 0, 1, -1);
+    const auto zero = (DE.right & 0b00100000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 5, E");
 }
 void CPULR35902::PR_6C() {
     T += 8;
-    setFlags(!(HL.left & 0b00100000), 0, 1, -1);
+    const auto zero = (HL.left & 0b00100000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 5, H");
 }
 void CPULR35902::PR_6D() {
     T += 8;
-    setFlags(!(HL.right & 0b00100000), 0, 1, -1);
+    const auto zero = (HL.right & 0b00100000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 5, L");
 }
 void CPULR35902::PR_6E() {
     T += 8;
     const auto value = m_bus->read<uint8_t>(HL.w);
-    setFlags(!(value & 0b00100000), 0, 1, -1);
+    const auto zero = (value & 0b00100000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 5, (HL)");
 }
 void CPULR35902::PR_6F() {
     T += 8;
-    setFlags(!(AF.left & 0b00100000), 0, 1, -1);
+    const auto zero = (AF.left & 0b00100000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 5, A");
 }
 void CPULR35902::PR_70() {
     T += 8;
-    setFlags(!(BC.left & 0b01000000), 0, 1, -1);
+    const auto zero = (BC.left & 0b01000000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 6, B");
 }
 void CPULR35902::PR_71() {
     T += 8;
-    setFlags(!(BC.right & 0b01000000), 0, 1, -1);
+    const auto zero = (BC.right & 0b01000000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 6, C");
 }
 void CPULR35902::PR_72() {
     T += 8;
-    setFlags(!(DE.left & 0b01000000), 0, 1, -1);
+    const auto zero = (DE.left & 0b01000000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 6, D");
 }
 void CPULR35902::PR_73() {
     T += 8;
-    setFlags(!(DE.right & 0b01000000), 0, 1, -1);
+    const auto zero = (DE.right & 0b01000000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 6, E");
 }
 void CPULR35902::PR_74() {
     T += 8;
-    setFlags(!(HL.left & 0b01000000), 0, 1, -1);
+    const auto zero = (HL.left & 0b01000000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 6, H");
 }
 void CPULR35902::PR_75() {
     T += 8;
-    setFlags(!(HL.right & 0b01000000), 0, 1, -1);
+    const auto zero = (HL.right & 0b01000000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 6, L");
 }
 void CPULR35902::PR_76() {
     T += 8;
     const auto value = m_bus->read<uint8_t>(HL.w);
-    setFlags(!(value & 0b01000000), 0, 1, -1);
+    const auto zero = (value & 0b01000000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 6, (HL)");
 }
 void CPULR35902::PR_77() {
     T += 8;
-    setFlags(!(AF.left & 0b01000000), 0, 1, -1);
+    const auto zero = (AF.left & 0b01000000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 6, A");
 }
 void CPULR35902::PR_78() {
     T += 8;
-    setFlags(!(BC.left & 0b10000000), 0, 1, -1);
+    const auto zero = (BC.left & 0b10000000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 7, B");
 }
 void CPULR35902::PR_79() {
     T += 8;
-    setFlags(!(BC.right & 0b10000000), 0, 1, -1);
+    const auto zero = (BC.right & 0b10000000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 7, C");
 }
 void CPULR35902::PR_7A() {
     T += 8;
-    setFlags(!(DE.left & 0b10000000), 0, 1, -1);
+    const auto zero = (DE.left & 0b10000000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 7, D");
 }
 void CPULR35902::PR_7B() {
     T += 8;
-    setFlags(!(DE.right & 0b10000000), 0, 1, -1);
+    const auto zero = (DE.right & 0b10000000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 7, E");
 }
 void CPULR35902::PR_7C() {
     T += 8;
-    setFlags(!(HL.left & 0b10000000), 0, 1, -1);
+    const auto zero = (HL.left & 0b10000000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 7, H");
 }
 void CPULR35902::PR_7D() {
     T += 8;
-    setFlags(!(HL.right & 0b10000000), 0, 1, -1);
+    const auto zero = (HL.right & 0b10000000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 7, L");
 }
 void CPULR35902::PR_7E() {
     T += 8;
     const auto value = m_bus->read<uint8_t>(HL.w);
-    setFlags(!(value & 0b10000000), 0, 1, -1);
+    const auto zero = (value & 0b10000000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 7, (HL)");
 }
 void CPULR35902::PR_7F() {
     T += 8;
-    setFlags(!(AF.left & 0b10000000), 0, 1, -1);
+    const auto zero = (AF.left & 0b10000000) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 7, A");
 }
 void CPULR35902::PR_80() {

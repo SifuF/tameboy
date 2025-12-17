@@ -30,6 +30,7 @@ private:
     std::string toHexString(int value);
     void initOpcodeHandlers();
     void processInterrupts();
+    void processDebugger();
 
     union Register {
         uint16_t w;
