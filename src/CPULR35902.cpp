@@ -19,7 +19,7 @@ CPULR35902::CPULR35902(Bus* bus) : m_bus(bus)
     //0x2cd: ldh a, [hJoyHeld]
     //m_pcOfInterest = 0x2cd; // TODO - debug
     //m_pcOfInterest = 0x0a9b;
-    //m_pcOfInterest = 0x2ae4;
+    //m_pcOfInterest = 0x100;
     //m_pcOfInterest = 0x17e;
 }
 
@@ -1858,13 +1858,14 @@ void CPULR35902::OP_EC() {
     throw std::runtime_error("Illegal instruction!");
 }
 void CPULR35902::OP_ED() {
-    //throw std::runtime_error("Illegal instruction!");
+    throw std::runtime_error("Illegal instruction!");
     T += 4;
     if (m_debug) logInstruction("Illegal instruction");
 }
 void CPULR35902::OP_EE() {
     T += 8;
-    const auto value = m_bus->read<uint8_t>(HL.w);
+    const auto value = m_bus->read<uint8_t>(PC.w);
+    PC.w ++;
     AF.left ^= value;
     setFlags((AF.left == 0), 0, 0, 0);
     if (m_debug) logInstruction("XOR A, $" + toHexString(value));

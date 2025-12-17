@@ -241,7 +241,7 @@ void PPU::tick(uint32_t cycles) {
         drawLine(LCDC, SCX, SCY, m_currentLine);
     }
     if (m_currentLine == 144) {
-       verticalInterrupt(); //TODO - put back
+       verticalInterrupt();
     }
     if (m_currentLine >= 153) {
         m_currentLine = -1;
