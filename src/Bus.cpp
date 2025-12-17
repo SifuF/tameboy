@@ -14,12 +14,12 @@ Bus::Bus() : m_boot(std::make_unique<uint8_t[]>(0x100)),
 
     readFile((char*)m_boot.get(), "../roms/DMG_ROM.bin");
     //readFile((char*)m_map.get(), "../roms/tetris.bin");
-    //readFile((char*)m_map.get(), "../roms/cpu_instrs.gb");
+    readFile((char*)m_map.get(), "../roms/cpu_instrs.gb");
     //readFile((char*)m_map.get(), "../roms/tennis.bin");
     //readFile((char*)m_map.get(), "../roms/Alleyway.bin");
     //readFile((char*)m_map.get(), "../roms/dr.bin");
     //readFile((char*)m_map.get(), "../roms/spot.gb");
-    readFile((char*)m_map.get(), "../roms/taz.gb");
+    //readFile((char*)m_map.get(), "../roms/taz.gb");
 
     cpu.reset();
     compareLogo();
@@ -82,7 +82,7 @@ void Bus::start()
             const auto SC = read<uint8_t>(0xFF02); // | Transfer enable |           | Clock speed | Clock select |
             if (SC == 0b1000'0001) {  // transfer enable & master clock
                 const auto SB = read<uint8_t>(0xFF01);
-                std::cout << static_cast<int >(SB);
+                std::cout << static_cast<char>(SB) << " ";
                 const auto clearEnable = Utils::clearBit(SC, 7);
                 write<uint8_t>(0xFF02, clearEnable);
 

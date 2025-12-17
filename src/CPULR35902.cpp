@@ -328,7 +328,7 @@ void CPULR35902::OP_06() {
     PC.w++;
     if (m_debug) logInstruction("LD B, $" + toHexString(BC.left));
 }
-void CPULR35902::OP_07() { // TODO Check Z flag
+void CPULR35902::OP_07() {
     T += 4;
     const uint8_t msb = AF.left >> 7;
     setFlags(0, 0, 0, msb);
@@ -340,7 +340,7 @@ void CPULR35902::OP_08() {
     const auto addr = m_bus->read<uint16_t>(PC.w);
     PC.w += 2;
     m_bus->write<uint16_t>(addr, SP.w);
-    if (m_debug) logInstruction("LD ($" + toHexString(addr) + ") ,SP");
+    if (m_debug) logInstruction("LD ($" + toHexString(addr) + "), SP");
 }
 void CPULR35902::OP_09() {
     T += 8;
@@ -1675,7 +1675,7 @@ void CPULR35902::OP_D2() {
     if (m_debug) logInstruction("RET NZ, $" + toHexString(addr));
 }
 void CPULR35902::OP_D3() {
-    throw std::runtime_error("Illegal instruction!");
+    throw std::runtime_error("Illegal instruction D3");
 }
 void CPULR35902::OP_D4() {
     const auto addr = m_bus->read<uint16_t>(PC.w);
@@ -1748,7 +1748,7 @@ void CPULR35902::OP_DA() {
     if (m_debug) logInstruction("JP C, $" + toHexString(addr));
 }
 void CPULR35902::OP_DB() {
-    throw std::runtime_error("Illegal instruction!");    
+    throw std::runtime_error("Illegal instruction DB");    
 }
 void CPULR35902::OP_DC() {
     const auto addr = m_bus->read<uint16_t>(PC.w);
@@ -1766,7 +1766,7 @@ void CPULR35902::OP_DC() {
     if (m_debug) logInstruction("CALL C, $" + toHexString(addr));
 }
 void CPULR35902::OP_DD() {
-    throw std::runtime_error("Illegal instruction!");
+    throw std::runtime_error("Illegal instruction DD");
 }
 void CPULR35902::OP_DE() {
     T += 8;
@@ -1803,10 +1803,10 @@ void CPULR35902::OP_E2() {
     if (m_debug) logInstruction("LD (SFF00+C), A");
 }
 void CPULR35902::OP_E3() {
-    throw std::runtime_error("Illegal instruction!");
+    throw std::runtime_error("Illegal instruction E3");
 }
 void CPULR35902::OP_E4() {
-    throw std::runtime_error("Illegal instruction!");
+    throw std::runtime_error("Illegal instruction E4");
 }
 void CPULR35902::OP_E5() {
     T += 16;
@@ -1831,11 +1831,12 @@ void CPULR35902::OP_E7() {
 }
 void CPULR35902::OP_E8() {
     T+=16;
-    const auto value = m_bus->read<uint8_t>(PC.w);
+    const auto unsignedValue = m_bus->read<uint8_t>(PC.w);
     PC.w++;
+    const auto value = static_cast<int8_t>(unsignedValue);
     const bool carry = (SP.right + value) > 0xFF;   
     const bool half = ((SP.w & 0xF) + (value & 0xF)) > 0xF;
-    SP.w += value;
+    SP.w += static_cast<int16_t>(value);
     setFlags(0, 0, half, carry);
     if (m_debug) logInstruction("ADD SP, $" + toHexString(value));
 }
@@ -1852,15 +1853,15 @@ void CPULR35902::OP_EA() {
     if (m_debug) logInstruction("LD ($" + toHexString(addr) + "), A");
 }
 void CPULR35902::OP_EB() {
-    throw std::runtime_error("Illegal instruction!");
+    throw std::runtime_error("Illegal instruction EB");
 }
 void CPULR35902::OP_EC() {
-    throw std::runtime_error("Illegal instruction!");
+    throw std::runtime_error("Illegal instruction EC");
 }
 void CPULR35902::OP_ED() {
-    throw std::runtime_error("Illegal instruction!");
+    throw std::runtime_error("Illegal instruction ED");
     T += 4;
-    if (m_debug) logInstruction("Illegal instruction");
+    if (m_debug) logInstruction("Illegal instruction ED");
 }
 void CPULR35902::OP_EE() {
     T += 8;
@@ -1900,7 +1901,7 @@ void CPULR35902::OP_F3() {
     if (m_debug) logInstruction("DI");
 }
 void CPULR35902::OP_F4() {
-    throw std::runtime_error("Illegal instruction!");
+    throw std::runtime_error("Illegal instruction F4");
 }
 void CPULR35902::OP_F5() {
     T += 16;
@@ -1925,11 +1926,12 @@ void CPULR35902::OP_F7() {
 }
 void CPULR35902::OP_F8() {
     T+=12;
-    const auto value = m_bus->read<uint8_t>(PC.w);
+    const auto unsignedValue = m_bus->read<uint8_t>(PC.w);
     PC.w++;
+    const auto value = static_cast<int8_t>(unsignedValue);
     const bool carry = (SP.right + value) > 0xFF;
     const bool half = ((SP.w & 0xF) + (value & 0xF)) > 0xF;
-    HL.w = SP.w + value;
+    HL.w = SP.w + static_cast<int16_t>(value);
     setFlags(0, 0, half, carry);
     if (m_debug) logInstruction("LD HL, SP + $" + toHexString(value));
 }
@@ -1950,10 +1952,10 @@ void CPULR35902::OP_FB() {
     if (m_debug) logInstruction("EI");
 }
 void CPULR35902::OP_FC() {
-    throw std::runtime_error("Illegal instruction!");
+    throw std::runtime_error("Illegal instruction FC");
 }
 void CPULR35902::OP_FD() {
-    throw std::runtime_error("Illegal instruction!");
+    throw std::runtime_error("Illegal instruction FD");
 }
 void CPULR35902::OP_FE() {
     T += 8;
