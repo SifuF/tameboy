@@ -13,8 +13,8 @@ Bus::Bus() : m_boot(std::make_unique<uint8_t[]>(0x100)),
     std::memset((char*)m_map.get(), 0, 0x10000);
 
     readFile((char*)m_boot.get(), "../roms/DMG_ROM.bin");
-    //readFile((char*)m_map.get(), "../roms/tetris.bin");
-    readFile((char*)m_map.get(), "../roms/cpu_instrs.gb");
+    readFile((char*)m_map.get(), "../roms/tetris_no_UpdateAudio.bin");
+    //readFile((char*)m_map.get(), "../roms/cpu_instrs.gb");
     //readFile((char*)m_map.get(), "../roms/tennis.bin");
     //readFile((char*)m_map.get(), "../roms/Alleyway.bin");
     //readFile((char*)m_map.get(), "../roms/dr.bin");
@@ -56,10 +56,8 @@ void Bus::start()
             const auto modulo = read<uint8_t>(0xFF06);
             if (tima == 0xFF) {
                 write<uint8_t>(0xFF05, modulo);
-
                 const auto newInterruptFlag = Utils::setBit(read<uint8_t>(0xFF0F), static_cast<int>(Interrupt::Timer));
                 write<uint8_t>(0xFF0F, newInterruptFlag);
-                cpu.wake();
                 LOG("Timer interrupt");
             }
             else {

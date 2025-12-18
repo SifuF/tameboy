@@ -12,15 +12,12 @@ CPULR35902::CPULR35902(Bus* bus) : m_bus(bus)
 
     //tetris
     //MainLoop::
-    //       call ReadJoypad
-    //       call.dispatch;
+    //0x2c4: call ReadJoypad
+    //0x2c7: call.dispatch;
     //0x2ca: call UpdateAudio
 
     //0x2cd: ldh a, [hJoyHeld]
-    //m_pcOfInterest = 0x2cd; // TODO - debug
-    //m_pcOfInterest = 0x0a9b;
-    m_pcOfInterest = 0x100;
-    //m_pcOfInterest = 0x17e;
+    //m_pcOfInterest = 0;
 }
 
 void CPULR35902::printState()
@@ -76,10 +73,11 @@ void CPULR35902::setFlags(int Z, int  N, int  H, int C)
     {
         uint8_t mask = 0;
         switch(flag) {
-            case Flag::Z : { mask = 0b10000000; break; }
-            case Flag::N : { mask = 0b01000000; break; }
-            case Flag::H : { mask = 0b00100000; break; }
-            case Flag::C : { mask = 0b00010000; break; }
+            using enum Flag;
+            case Z : { mask = 0b10000000; break; }
+            case N : { mask = 0b01000000; break; }
+            case H : { mask = 0b00100000; break; }
+            case C : { mask = 0b00010000; break; }
         }
 
         if(high)
@@ -120,14 +118,17 @@ void CPULR35902::processInterrupts()
     if (interruptEnable & interruptFlag) {
         m_halt = false;
     }
+
+    if (!m_interruptMasterEnable) {
+        return;
+    }
+
     for (int i = static_cast<int>(Interrupt::VBlank); i <= static_cast<int>(Interrupt::Joypad); ++i)
     {
         const auto mask = 1 << i;
         const auto interrupt = static_cast<Interrupt>(i);
         if (interruptFlag & interruptEnable & mask)
         {
-            m_interruptMasterEnable = false;
-            
             auto jumpToHandler = [&](uint16_t addr) {
                 T += 20;
                 SP.w -= 2;
@@ -241,17 +242,7 @@ uint64_t CPULR35902::fetchDecodeExecute()
         processDebugger();
     }
 
-    if (m_interruptMasterEnable)
-        processInterrupts();
-
-    if (m_eiPending) {
-        m_interruptMasterEnable = true;
-        m_eiPending = false;
-    }
-
-    auto* map = m_bus->getMap();
-    auto c1 = map[0xcff9];
-    auto c2 = map[0xcffa];
+    processInterrupts();
 
     if (m_halt || m_stop)
         return 0;
@@ -700,7 +691,7 @@ void CPULR35902::OP_36() {
     const auto value  = m_bus->read<uint8_t>(PC.w);
     PC.w++;
     m_bus->write<uint8_t>(HL.w, value);
-    if (m_debug) logInstruction("LD (HL), " + toHexString(BC.left));
+    if (m_debug) logInstruction("LD (HL), " + toHexString(value));
 }
 void CPULR35902::OP_37() {
     T += 4;
@@ -1987,7 +1978,7 @@ void CPULR35902::OP_FA() {
     if (m_debug) logInstruction("LD A, ($" + toHexString(addr) + ")");
 }
 void CPULR35902::OP_FB() {
-    m_eiPending = true;
+    m_interruptMasterEnable = true;
     if (m_debug) logInstruction("EI");
 }
 void CPULR35902::OP_FC() {

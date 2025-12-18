@@ -34,29 +34,4 @@ namespace Utils {
     [[nodiscard]] inline uint8_t clearBit(uint8_t val, int bit) {
         return val & (~(1 << bit));
     };
-
-    template<typename T>
-    class RingBuffer {
-    public:
-        explicit RingBuffer(size_t capacity)
-            : data(capacity), capacity(capacity) {}
-
-        void push(const T& value) {
-            data[head] = value;
-            head = (head + 1) % capacity;
-            if (size < capacity) ++size;
-        }
-
-        const T& operator[](size_t index) const {
-            return data[(head + capacity - size + index) % capacity];
-        }
-
-        size_t getSize() const { return size; }
-
-    private:
-        std::vector<T> data;
-        size_t capacity;
-        size_t head = 0;
-        size_t size = 0;
-    };
 };

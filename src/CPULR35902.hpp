@@ -21,7 +21,6 @@ public:
     CPULR35902(Bus* bus);
     void reset(); 
     uint64_t fetchDecodeExecute();
-    void wake() { m_halt = false; }
     void printState();
 
 private:
@@ -50,7 +49,6 @@ private:
 
     bool m_halt = false;
     bool m_stop = false; 
-    bool m_eiPending = false;
     bool m_interruptMasterEnable = false;
     Bus* m_bus;
 
