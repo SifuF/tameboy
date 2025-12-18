@@ -32,6 +32,30 @@ void Screen::update(const std::vector<uint8_t>& frameBuffer) {
             event->getIf<sf::Event::KeyPressed>()->code == sf::Keyboard::Key::Escape)) {
             mainWindow.close();
         }
+
+        if (event->is<sf::Event::KeyPressed>()) {
+            const auto code = event->getIf<sf::Event::KeyPressed>()->code;
+            if (code == sf::Keyboard::Key::Up) { m_joypad.at(0) = true; }
+            if (code == sf::Keyboard::Key::Down) { m_joypad.at(1) = true; }
+            if (code == sf::Keyboard::Key::Left) { m_joypad.at(2) = true; }
+            if (code == sf::Keyboard::Key::Right) { m_joypad.at(3) = true; }
+            if (code == sf::Keyboard::Key::Z) { m_joypad.at(4) = true; }
+            if (code == sf::Keyboard::Key::X) { m_joypad.at(5) = true; }
+            if (code == sf::Keyboard::Key::A) { m_joypad.at(6) = true; }
+            if (code == sf::Keyboard::Key::S) { m_joypad.at(7) = true; }
+        }
+
+        if (event->is<sf::Event::KeyReleased>()) {
+            const auto code = event->getIf<sf::Event::KeyPressed>()->code;
+            if (code == sf::Keyboard::Key::Up) { m_joypad.at(0) = false; }
+            if (code == sf::Keyboard::Key::Down) { m_joypad.at(1) = false; }
+            if (code == sf::Keyboard::Key::Left) { m_joypad.at(2) = false; }
+            if (code == sf::Keyboard::Key::Right) { m_joypad.at(3) = false; }
+            if (code == sf::Keyboard::Key::Z) { m_joypad.at(4) = false; }
+            if (code == sf::Keyboard::Key::X) { m_joypad.at(5) = false; }
+            if (code == sf::Keyboard::Key::A) { m_joypad.at(6) = false; }
+            if (code == sf::Keyboard::Key::S) { m_joypad.at(7) = false; }
+        }
     }
 
     mainTexture->update(frameBuffer.data());

@@ -10,6 +10,8 @@ public:
     void update(const std::vector<uint8_t>& frameBuffer);
     void updateDebug(const std::vector<uint8_t>& tileDataBuffer, const std::vector<uint8_t>& tileMapBuffer);
 
+    const std::array<bool, 8>& getJoypad() { return m_joypad; }
+
 private:
     sf::RenderWindow mainWindow;
     std::optional<sf::Texture> mainTexture;
@@ -33,5 +35,7 @@ private:
     int tileMapScale = 2;
 
     bool running = true;
+
+    std::array<bool, 8> m_joypad{}; // up, down, left, right, a, b, select, start
 };
 
