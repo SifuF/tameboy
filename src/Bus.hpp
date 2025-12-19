@@ -12,12 +12,8 @@ class Bus {
 public:
     Bus();
     void start();
-
-    template<typename T>
-    T read(uint16_t addr);
-
-    template<typename T>
-    void write(uint16_t addr, T value);
+    uint8_t read(uint16_t addr);
+    void write(uint16_t addr, uint8_t value);
 
     // debug
     uint8_t* getMap() { return m_map.get(); }
@@ -39,41 +35,3 @@ private:
     PPU ppu;
     Screen screen;
 };
-
-template<typename T>
-T Bus::read(uint16_t addr) {
-    auto & map = (bootRom && (addr < 0x100)) ? m_boot : m_map;
-   
-    if (addr == 0xFF00) {
-        return 0x0001'1111; // TODO - buttons
-    }
-
-    if constexpr (sizeof(T)==1) {
-        return map[addr];
-    }
-    else {
-        return static_cast<T>(map[addr]) | (map[addr + 1] << 8);
-    }
-}  
-
-template<typename T>
-void Bus::write(uint16_t addr, T value) {
-    if(addr < 0x8000) // ROM
-        return;
-
-    if (addr == 0xFF04) { // divider register
-        m_map[0xFF04] = 0;
-        return;
-    }
-
-    if (addr == 0xFF50)
-        bootRom = false;
-
-    if constexpr (sizeof(T)==1) {
-       	m_map[addr] = value;
-    }
-    else {
-        m_map[addr] = static_cast<uint8_t>(value);
-        m_map[addr + 1] = static_cast<uint8_t>(value >> 8);
-    }
-}

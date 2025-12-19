@@ -24,6 +24,8 @@ public:
     void printState();
 
 private:
+    uint16_t read16(uint16_t addr);
+    void write16(uint16_t addr, uint16_t value);
     void setFlags(int Z, int N, int H, int C);
     bool getFlag(Flag flag);
     std::string toHexString(int value);

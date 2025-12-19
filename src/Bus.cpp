@@ -36,7 +36,7 @@ void Bus::start()
 
     const auto processTimer = [&](uint64_t& counter)
     {
-        const auto tac = read<uint8_t>(0xFF07);
+        const auto tac = read(0xFF07);
         const auto enable = static_cast<bool>(tac & 0b0000'0100);
         if (!enable) {
             return;
@@ -52,16 +52,16 @@ void Bus::start()
             default: throw std::runtime_error("Bad clock select");
         }
         if (counter >= clock) {
-            const auto tima = read<uint8_t>(0xFF05);
-            const auto modulo = read<uint8_t>(0xFF06);
+            const auto tima = read(0xFF05);
+            const auto modulo = read(0xFF06);
             if (tima == 0xFF) {
-                write<uint8_t>(0xFF05, modulo);
-                const auto newInterruptFlag = Utils::setBit(read<uint8_t>(0xFF0F), static_cast<int>(Interrupt::Timer));
-                write<uint8_t>(0xFF0F, newInterruptFlag);
+                write(0xFF05, modulo);
+                const auto newInterruptFlag = Utils::setBit(read(0xFF0F), static_cast<int>(Interrupt::Timer));
+                write(0xFF0F, newInterruptFlag);
                 LOG("Timer interrupt");
             }
             else {
-                write<uint8_t>(0xFF05, tima + 1);
+                write(0xFF05, tima + 1);
             }
             counter -= clock;
         }
@@ -78,15 +78,15 @@ void Bus::start()
     const auto processSerial = [&](uint64_t& counter)
     {
         if (counter >= 4) {                        // |        7        | 6 5 4 3 2 |      1      |      0       |
-            const auto SC = read<uint8_t>(0xFF02); // | Transfer enable |           | Clock speed | Clock select |
+            const auto SC = read(0xFF02); // | Transfer enable |           | Clock speed | Clock select |
             if (SC == 0b1000'0001) {  // transfer enable & master clock
-                const auto SB = read<uint8_t>(0xFF01);
+                const auto SB = read(0xFF01);
                 std::cout << static_cast<char>(SB) << " ";
                 const auto clearEnable = Utils::clearBit(SC, 7);
-                write<uint8_t>(0xFF02, clearEnable);
+                write(0xFF02, clearEnable);
 
-                const auto newInterruptFlag = Utils::setBit(read<uint8_t>(0xFF0F), static_cast<int>(Interrupt::Serial));
-                write<uint8_t>(0xFF0F, newInterruptFlag);
+                const auto newInterruptFlag = Utils::setBit(read(0xFF0F), static_cast<int>(Interrupt::Serial));
+                write(0xFF0F, newInterruptFlag);
                 LOG("Serial interrupt");
             }
             counter -= 4;
@@ -123,6 +123,33 @@ void Bus::start()
         dividerCycleCounter += cycles;
         serialCycleCounter += cycles;
     }
+}
+
+uint8_t Bus::read(uint16_t addr)
+{
+    auto& map = (bootRom && (addr < 0x100)) ? m_boot : m_map;
+
+    if (addr == 0xFF00) {
+        return 0x0001'1111; // TODO - buttons
+    }
+
+    return map[addr];
+}
+
+void Bus::write(uint16_t addr, uint8_t value)
+{
+    if (addr < 0x8000) // ROM
+        return;
+
+    if (addr == 0xFF04) { // divider register
+        m_map[0xFF04] = 0;
+        return;
+    }
+
+    if (addr == 0xFF50)
+        bootRom = false;
+
+    m_map[addr] = value;
 }
 
 void Bus::readFile(char* buffer, const char* filename)
