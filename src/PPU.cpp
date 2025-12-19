@@ -39,11 +39,14 @@ std::array<uint8_t, 3> PPU::colorLookup(bool msb, bool lsb) const
     }
 };
 
-void PPU::drawObject(Vbuffer& buffer, int pos, uint16_t tile)
+void PPU::drawObject(Vbuffer& buffer, XY pixelPos, uint16_t tile)
 {
     const uint16_t tileStart = 0x8000 + tile * 16;
+    const auto screenStart = (pixelPos.first - 8) * 4 + (pixelPos.second - 16) * buffer.width * 4;
+    if (screenStart<0 || screenStart > ((4 * 160 * 144) - (4 * 8 * 8))) {
+        return;
+    }
 
-    const auto screenStart = pos * 8 + pos * 8 * buffer.width;
     for (int j = 0; j < 8; ++j) { // 8 rows in a tile
         const auto lsByte = bus->read(tileStart + 2 * j);
         const auto msByte = bus->read(tileStart + 2 * j + 1);
@@ -51,11 +54,10 @@ void PPU::drawObject(Vbuffer& buffer, int pos, uint16_t tile)
             const auto lsBit = static_cast<bool>(lsByte & (1 << (7 - i)));
             const auto msBit = static_cast<bool>(msByte & (1 << (7 - i)));
             const auto [r, g, b] = colorLookup(msBit, lsBit);
-            const int index = screenStart + i + j * buffer.width;
-            buffer.data[4 * index] = r;
-            buffer.data[4 * index + 1] = g;
-            buffer.data[4 * index + 2] = b;
-            buffer.data[4 * index + 3] = 255;
+            buffer.data[screenStart + 4 * (i + j * buffer.width)] = r;
+            buffer.data[screenStart + 4 * (i + j * buffer.width) + 1] = g;
+            buffer.data[screenStart + 4 * (i + j * buffer.width) + 2] = b;
+            buffer.data[screenStart + 4 * (i + j * buffer.width) + 3] = 255;
         }
     }
 };
@@ -147,13 +149,14 @@ void PPU::updateDebugVramDisplays()
     }
 
     // objects TODO
+    objectBuffer.clear();
     const auto numObjects = 40;
     for (int i = 0; i < numObjects; ++i) {
         const auto Y = bus->read(0xFE00 + i * 4);
         const auto X = bus->read(0xFE00 + (i * 4) + 1);
         const auto TILE = bus->read(0xFE00 + (i * 4) + 2);
         const auto FLAGS = bus->read(0xFE00 + (i * 4) + 3);
-        drawObject(objectBuffer, i%18, i);
+        drawObject(objectBuffer, {X, Y}, TILE);
     }
 }
 

@@ -33,4 +33,7 @@ private:
     CPULR35902 cpu;
     PPU ppu;
     Screen screen;
+
+    uint64_t m_instructionCounter{};
+    uint64_t m_cycleCounter{};
 };

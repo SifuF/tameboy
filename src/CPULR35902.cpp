@@ -57,6 +57,21 @@ void CPULR35902::printState()
         << "\n";
 }
 
+void CPULR35902::printOam()
+{
+    auto* mem = m_bus->getMap();
+    auto offset = 0xFe00;
+    std::cout << "OAM:\n";
+
+    for (size_t i = 0; i < 40; ++i) {
+        std::cout << std::dec << i << '(' << std::hex << offset << ") "
+            << "Y=" << static_cast<int>(*(mem + offset))
+            << " X=" << static_cast<int>(*(mem + offset + 1))
+            << " Tile=" << static_cast<int>(*(mem + offset + 2))
+            << " Flags=" << static_cast<int>(*(mem + offset + 3)) << "\n";
+        offset += 4;
+    }
+}
 void CPULR35902::reset()
 {
     AF.w = 0;
@@ -176,7 +191,17 @@ void CPULR35902::processDebugger()
 {
     static bool helped = false;
     if (!helped) {
-        std::cout << "TameBoy Debugger v0.1\n\tX : run X instructions (dec)\n\tEnter : step single instruction\n\ts : dump CPU state\n\tpX : increment PC by X (0-9)\n\td : draw tile maps\n\tmX : print byte (hex)\n";
+        std::cout <<
+R"(TameBoy Debugger v0.1
+        X : run X instructions (dec)
+        Enter : step single instruction
+        s : dump CPU state
+        s : dump OAM
+        pX : increment PC by X (0-9)
+        cX : break at PC == X (hex)
+        d : draw tile maps
+        mX : print byte (hex)
+)";
         helped = true;
     }
     while (true) {
@@ -191,6 +216,9 @@ void CPULR35902::processDebugger()
                 if (std::isdigit(str[1])) {
                     PC.w += str[1] - '0';
                 }
+            }
+            else if (str == "o") {
+                printOam();
             }
             else if (str == "d") {
                 std::cout << "tile maps drawn" << std::endl;

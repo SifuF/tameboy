@@ -92,9 +92,6 @@ void Bus::start()
             counter -= 4;
         }
     };
-
-    uint64_t instructionCounter{};
-    uint64_t cycleCounter{};
     
     uint64_t timerCycleCounter{};
     uint64_t dividerCycleCounter{};
@@ -108,17 +105,17 @@ void Bus::start()
 
         const auto cycles = cpu.fetchDecodeExecute();
 
-        if (instructionCounter % 70 == 0) {
+        if (m_instructionCounter % 70 == 0) {
         //if (cycleCounter % 456 == 0) {
             ppu.tick(cycles);
         }
-        if (instructionCounter % 10000 == 0) {
+        if (m_instructionCounter % 10000 == 0) {
             updateScreens();
         }
 
-        instructionCounter++;
+        m_instructionCounter++;
         
-        cycleCounter += cycles;
+        m_cycleCounter += cycles;
         timerCycleCounter += cycles;
         dividerCycleCounter += cycles;
         serialCycleCounter += cycles;
@@ -158,6 +155,13 @@ void Bus::write(uint16_t addr, uint8_t value)
 
     if (addr == 0xFF04) { // divider register
         m_map[0xFF04] = 0;
+        return;
+    }
+
+    if (addr == 0xFF46) { // DMA
+        m_cycleCounter += 160;
+        const auto src = static_cast<uint16_t>(value << 8);
+        std::memcpy((m_map.get() + 0xFE00), (m_map.get() + src), 160);
         return;
     }
 

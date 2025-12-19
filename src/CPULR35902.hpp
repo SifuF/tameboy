@@ -21,17 +21,19 @@ public:
     CPULR35902(Bus* bus);
     void reset(); 
     uint64_t fetchDecodeExecute();
-    void printState();
-
+ 
 private:
     uint16_t read16(uint16_t addr);
     void write16(uint16_t addr, uint16_t value);
     void setFlags(int Z, int N, int H, int C);
     bool getFlag(Flag flag);
-    std::string toHexString(int value);
     void initOpcodeHandlers();
     void processInterrupts();
+
+    std::string toHexString(int value);
     void processDebugger();
+    void printState();
+    void printOam();
 
     union Register {
         uint16_t w;
