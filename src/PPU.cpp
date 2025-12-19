@@ -124,6 +124,18 @@ void PPU::drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, int LC) {
     }
 };
 
+void PPU::blitObjects(Vbuffer& buffer)
+{
+    const auto numObjects = 40;
+    for (int i = 0; i < numObjects; ++i) {
+        const auto Y = bus->read(0xFE00 + i * 4);
+        const auto X = bus->read(0xFE00 + (i * 4) + 1);
+        const auto TILE = bus->read(0xFE00 + (i * 4) + 2);
+        const auto FLAGS = bus->read(0xFE00 + (i * 4) + 3);
+        drawObject(buffer, { X, Y }, TILE);
+    }
+}
+
 void PPU::updateDebugVramDisplays()
 {
      // tile blocks
@@ -148,16 +160,9 @@ void PPU::updateDebugVramDisplays()
         }
     }
 
-    // objects TODO
+    // objects
     objectBuffer.clear();
-    const auto numObjects = 40;
-    for (int i = 0; i < numObjects; ++i) {
-        const auto Y = bus->read(0xFE00 + i * 4);
-        const auto X = bus->read(0xFE00 + (i * 4) + 1);
-        const auto TILE = bus->read(0xFE00 + (i * 4) + 2);
-        const auto FLAGS = bus->read(0xFE00 + (i * 4) + 3);
-        drawObject(objectBuffer, {X, Y}, TILE);
-    }
+    blitObjects(objectBuffer);
 }
 
 void PPU::verticalInterrupt()
@@ -276,9 +281,10 @@ void PPU::tick(uint32_t cycles) {
     
     if (m_currentLine < 144) {
         drawLine(LCDC, SCX, SCY, m_currentLine);
+        blitObjects(frameBuffer); // TODO - line blit
     }
     if (m_currentLine == 144) {
-       verticalInterrupt();
+        verticalInterrupt();
     }
     if (m_currentLine >= 153) {
         m_currentLine = -1;

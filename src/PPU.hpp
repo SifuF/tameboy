@@ -38,6 +38,7 @@ private:
     void drawObject(Vbuffer& buffer, XY pos, uint16_t tile);
     void drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, int LC);
     void drawDots();
+    void blitObjects(Vbuffer& buffer);
     
     void verticalInterrupt();
     void statInterrupt();
