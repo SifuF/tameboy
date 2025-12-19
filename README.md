@@ -1,6 +1,8 @@
 ### TameBoy
 Nintendo Game Boy emulator + debugger
 
+![tetris](img/tetris.gif)
+
 ##### Building:
 ```
 git submodule update --init --recursive
