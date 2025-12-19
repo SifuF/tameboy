@@ -1,5 +1,7 @@
 #include "Screen.hpp"
 
+#include "Utils.hpp"
+
 #include <SFML/Graphics.hpp>
 #include <iostream>
 
@@ -33,28 +35,28 @@ void Screen::update(const std::vector<uint8_t>& frameBuffer) {
             mainWindow.close();
         }
 
-        if (event->is<sf::Event::KeyPressed>()) {
+        if (event->is<sf::Event::KeyPressed>()) {  // active low
             const auto code = event->getIf<sf::Event::KeyPressed>()->code;
-            if (code == sf::Keyboard::Key::Up) { m_joypad.at(0) = true; }
-            if (code == sf::Keyboard::Key::Down) { m_joypad.at(1) = true; }
-            if (code == sf::Keyboard::Key::Left) { m_joypad.at(2) = true; }
-            if (code == sf::Keyboard::Key::Right) { m_joypad.at(3) = true; }
-            if (code == sf::Keyboard::Key::Z) { m_joypad.at(4) = true; }
-            if (code == sf::Keyboard::Key::X) { m_joypad.at(5) = true; }
-            if (code == sf::Keyboard::Key::A) { m_joypad.at(6) = true; }
-            if (code == sf::Keyboard::Key::S) { m_joypad.at(7) = true; }
+            if (code == sf::Keyboard::Key::Down) { m_joypad = Utils::clearBit(m_joypad, 7); }
+            if (code == sf::Keyboard::Key::Up) { m_joypad = Utils::clearBit(m_joypad, 6); }
+            if (code == sf::Keyboard::Key::Left) { m_joypad = Utils::clearBit(m_joypad, 5); }
+            if (code == sf::Keyboard::Key::Right) { m_joypad = Utils::clearBit(m_joypad, 4); }
+            if ((code == sf::Keyboard::Key::S) || (code == sf::Keyboard::Key::Enter)) { m_joypad = Utils::clearBit(m_joypad, 3); }
+            if (code == sf::Keyboard::Key::A) { m_joypad = Utils::clearBit(m_joypad, 2); }
+            if (code == sf::Keyboard::Key::Z) { m_joypad = Utils::clearBit(m_joypad, 1); }
+            if (code == sf::Keyboard::Key::X) { m_joypad = Utils::clearBit(m_joypad, 0); }
         }
 
         if (event->is<sf::Event::KeyReleased>()) {
-            const auto code = event->getIf<sf::Event::KeyPressed>()->code;
-            if (code == sf::Keyboard::Key::Up) { m_joypad.at(0) = false; }
-            if (code == sf::Keyboard::Key::Down) { m_joypad.at(1) = false; }
-            if (code == sf::Keyboard::Key::Left) { m_joypad.at(2) = false; }
-            if (code == sf::Keyboard::Key::Right) { m_joypad.at(3) = false; }
-            if (code == sf::Keyboard::Key::Z) { m_joypad.at(4) = false; }
-            if (code == sf::Keyboard::Key::X) { m_joypad.at(5) = false; }
-            if (code == sf::Keyboard::Key::A) { m_joypad.at(6) = false; }
-            if (code == sf::Keyboard::Key::S) { m_joypad.at(7) = false; }
+            const auto code = event->getIf<sf::Event::KeyReleased>()->code;
+            if (code == sf::Keyboard::Key::Down) { m_joypad = Utils::setBit(m_joypad, 7); }
+            if (code == sf::Keyboard::Key::Up) { m_joypad = Utils::setBit(m_joypad, 6); }
+            if (code == sf::Keyboard::Key::Left) { m_joypad = Utils::setBit(m_joypad, 5); }
+            if (code == sf::Keyboard::Key::Right) { m_joypad = Utils::setBit(m_joypad, 4); }
+            if ((code == sf::Keyboard::Key::S) || (code == sf::Keyboard::Key::Enter)) { m_joypad = Utils::setBit(m_joypad, 3); }
+            if (code == sf::Keyboard::Key::A) { m_joypad = Utils::setBit(m_joypad, 2); }
+            if (code == sf::Keyboard::Key::Z) { m_joypad = Utils::setBit(m_joypad, 1); }
+            if (code == sf::Keyboard::Key::X) { m_joypad = Utils::setBit(m_joypad, 0); }
         }
     }
 

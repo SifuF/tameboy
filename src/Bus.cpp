@@ -130,7 +130,17 @@ uint8_t Bus::read(uint16_t addr)
     auto& map = (bootRom && (addr < 0x100)) ? m_boot : m_map;
 
     if (addr == 0xFF00) {
-        return 0x0001'1111; // TODO - buttons
+        const auto joypad = screen.getJoypad();
+        const auto dPad = (joypad & 0xF0) >> 4;
+        const auto buttons = joypad & 0x0F;
+        const auto bits4to5 = static_cast<uint8_t>((m_map[0xFF00] & 0b0011'0000) >> 4);
+        const auto msn = m_map[0xFF00] & 0xF0;
+        switch (bits4to5) {
+            case 0: return msn | (buttons & dPad);
+            case 1: return msn | buttons;
+            case 2: return msn | dPad;
+            default: return msn | 0x0F;
+        }
     }
 
     return map[addr];
@@ -140,6 +150,11 @@ void Bus::write(uint16_t addr, uint8_t value)
 {
     if (addr < 0x8000) // ROM
         return;
+
+    if (addr == 0xFF00) { // Joypad. Only bits 4 and 5 are writable
+        m_map[0xFF00] = (m_map[0xFF00] & 0b1100'1111) | (value & 0b0011'0000);
+        return;
+    }
 
     if (addr == 0xFF04) { // divider register
         m_map[0xFF04] = 0;

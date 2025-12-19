@@ -25,7 +25,6 @@ public:
 
 private:
     void readFile(char* buffer, const char* filename);
-    void printMap(uint16_t offset, uint16_t lines);
     void compareLogo();
 
     bool bootRom = true;
