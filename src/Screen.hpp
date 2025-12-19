@@ -8,7 +8,8 @@ class Screen {
 public:
     Screen();
     void update(const std::vector<uint8_t>& frameBuffer);
-    void updateDebug(const std::vector<uint8_t>& tileDataBuffer, const std::vector<uint8_t>& tileMapBuffer);
+    void updateDebug(const std::vector<uint8_t>& tileDataBuffer,
+        const std::vector<uint8_t>& tileMapBuffer, const std::vector<uint8_t>& objectBuffer);
 
     uint8_t getJoypad() { return m_joypad; }
 
@@ -33,6 +34,13 @@ private:
     static constexpr int tileMapWidth = 256; // 32 * 8
     static constexpr int tileMapHeight = 512; // 2 * 32 * 8
     int tileMapScale = 2;
+
+    sf::RenderWindow objectWindow;
+    std::optional<sf::Texture> objectTexture;
+    std::optional<sf::Sprite> objectSprite;
+    static constexpr int objectWidth = 160; // 20 * 8
+    static constexpr int objectHeight = 144; // 18 * 8
+    int objectScale = 3;
 
     bool running = true;
 

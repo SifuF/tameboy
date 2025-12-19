@@ -20,7 +20,7 @@ public:
     void forceDraw()
     {
         ppu.updateDebugVramDisplays();
-        screen.updateDebug(ppu.getTileDataBuffer(), ppu.getTileMapBuffer());
+        screen.updateDebug(ppu.getTileDataBuffer(), ppu.getTileMapBuffer(), ppu.getObjectBuffer());
     }
 
 private:

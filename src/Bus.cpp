@@ -31,7 +31,7 @@ void Bus::start()
     {
         screen.update(ppu.getFrameBuffer());
         ppu.updateDebugVramDisplays();
-        screen.updateDebug(ppu.getTileDataBuffer(), ppu.getTileMapBuffer());
+        screen.updateDebug(ppu.getTileDataBuffer(), ppu.getTileMapBuffer(), ppu.getObjectBuffer());
     };
 
     const auto processTimer = [&](uint64_t& counter)

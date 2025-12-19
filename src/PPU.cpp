@@ -15,6 +15,9 @@ PPU::PPU(Bus* bus) : bus(bus), m_dots(0), m_mode(Mode::OAMSCAN), m_currentLine(0
 
     tileMapBuffer.data.resize(2 * 32 * 32 * 8 * 8 * 4); // 2 maps, 32x32 tiles in each map, each tile 8x8 pixels, each pixel 4 bytes RGBA
     tileMapBuffer.width = 256;
+
+    objectBuffer.data.resize(160 * 144 * 4); // same as frameBuffer
+    objectBuffer.width = 160;
 }
 
 std::array<uint8_t, 3> PPU::colorLookup(bool msb, bool lsb) const
@@ -33,6 +36,27 @@ std::array<uint8_t, 3> PPU::colorLookup(bool msb, bool lsb) const
         case 2: return { 80, 80, 80 };
         default: return { 0, 0, 0 };
 #endif
+    }
+};
+
+void PPU::drawObject(Vbuffer& buffer, int pos, uint16_t tile)
+{
+    const uint16_t tileStart = 0x8000 + tile * 16;
+
+    const auto screenStart = pos * 8 + pos * 8 * buffer.width;
+    for (int j = 0; j < 8; ++j) { // 8 rows in a tile
+        const auto lsByte = bus->read(tileStart + 2 * j);
+        const auto msByte = bus->read(tileStart + 2 * j + 1);
+        for (int i = 0; i < 8; ++i) { // one 8 tile row at a time
+            const auto lsBit = static_cast<bool>(lsByte & (1 << (7 - i)));
+            const auto msBit = static_cast<bool>(msByte & (1 << (7 - i)));
+            const auto [r, g, b] = colorLookup(msBit, lsBit);
+            const int index = screenStart + i + j * buffer.width;
+            buffer.data[4 * index] = r;
+            buffer.data[4 * index + 1] = g;
+            buffer.data[4 * index + 2] = b;
+            buffer.data[4 * index + 3] = 255;
+        }
     }
 };
 
@@ -120,6 +144,16 @@ void PPU::updateDebugVramDisplays()
             drawAlignedTile(tileMapBuffer, { i, j }, bus->read(0x9800 + i + tileMapSize * j), unsignedMode); // background
             drawAlignedTile(tileMapBuffer, { i, j + 32 }, bus->read(0x9C00 + i + tileMapSize * j), unsignedMode); // window
         }
+    }
+
+    // objects TODO
+    const auto numObjects = 40;
+    for (int i = 0; i < numObjects; ++i) {
+        const auto Y = bus->read(0xFE00 + i * 4);
+        const auto X = bus->read(0xFE00 + (i * 4) + 1);
+        const auto TILE = bus->read(0xFE00 + (i * 4) + 2);
+        const auto FLAGS = bus->read(0xFE00 + (i * 4) + 3);
+        drawObject(objectBuffer, i%18, i);
     }
 }
 

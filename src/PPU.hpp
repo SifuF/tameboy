@@ -27,10 +27,12 @@ public:
     const std::vector<uint8_t>& getFrameBuffer() const { return frameBuffer.data; }
     const std::vector<uint8_t>& getTileDataBuffer() const { return tileDataBuffer.data; }
     const std::vector<uint8_t>& getTileMapBuffer() const { return tileMapBuffer.data; }
+    const std::vector<uint8_t>& getObjectBuffer() const { return objectBuffer.data; }
 
 private:
     std::array<uint8_t, 3> colorLookup(bool msb, bool lsb) const;
     void drawAlignedTile(Vbuffer& buffer, XY tilePos, uint16_t tile, bool unsignedMode = true);
+    void drawObject(Vbuffer& buffer, int pos, uint16_t tile);
     void drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, int LC);
     void drawDots();
     
@@ -40,7 +42,8 @@ private:
     Vbuffer frameBuffer;
     Vbuffer tileDataBuffer;
     Vbuffer tileMapBuffer;
-    Bus* bus = nullptr;
+    Vbuffer objectBuffer;
+    Bus* bus{};
 
     uint32_t m_dots;
     Mode m_mode = Mode::OAMSCAN;
