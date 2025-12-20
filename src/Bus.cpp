@@ -25,8 +25,6 @@ Bus::Bus() :
 
     m_cpu.reset();
     compareLogo();
-
-    m_sound.run(); // TODO
 }
 
 void Bus::start()
@@ -104,6 +102,7 @@ void Bus::start()
         processTimer(timerCycleCounter);
         processDivider(dividerCycleCounter);
         processSerial(serialCycleCounter);
+        m_sound.process(m_cycleCounter);
 
         const auto cycles = m_cpu.fetchDecodeExecute();
 
@@ -113,6 +112,10 @@ void Bus::start()
         }
         if (m_instructionCounter % 10000 == 0) {
             updateScreens();
+        }
+
+        if (m_instructionCounter == 3000000) {
+            m_sound.play();
         }
 
         m_instructionCounter++;
