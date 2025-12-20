@@ -34,7 +34,7 @@ void Stream::onSeek(sf::Time timeOffset)
 void Sound::run()
 {
     try {
-        const sf::SoundBuffer buffer("../sounds/test.mp3");
+        const sf::SoundBuffer buffer("../sounds/testa.mp3");
 
         m_stream.load(buffer);
         m_stream.play();

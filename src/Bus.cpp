@@ -4,10 +4,12 @@
 #include <fstream>
 #include <optional>
 
-Bus::Bus() : m_boot(std::make_unique<uint8_t[]>(0x100)),
-             m_map(std::make_unique<uint8_t[]>(0x10000)),
-             cpu(this),
-             ppu(this)
+Bus::Bus() :
+    m_boot(std::make_unique<uint8_t[]>(0x100)),
+    m_map(std::make_unique<uint8_t[]>(0x10000)),
+    m_cpu(this),
+    m_ppu(this),
+    m_screen(this)
 {    
     std::memset((char*)m_boot.get(), 0, 0x100);
     std::memset((char*)m_map.get(), 0, 0x10000);
@@ -21,19 +23,19 @@ Bus::Bus() : m_boot(std::make_unique<uint8_t[]>(0x100)),
     //readFile((char*)m_map.get(), "../roms/spot.gb");
     //readFile((char*)m_map.get(), "../roms/taz.gb");
 
-    cpu.reset();
+    m_cpu.reset();
     compareLogo();
 
-    sound.run();
+    m_sound.run(); // TODO
 }
 
 void Bus::start()
 {
     const auto updateScreens = [&]()
     {
-        screen.update(ppu.getFrameBuffer());
-        ppu.updateDebugVramDisplays();
-        screen.updateDebug(ppu.getTileDataBuffer(), ppu.getTileMapBuffer(), ppu.getObjectBuffer());
+        m_screen.update(m_ppu.getFrameBuffer());
+        m_ppu.updateDebugVramDisplays();
+        m_screen.updateDebug(m_ppu.getTileDataBuffer(), m_ppu.getTileMapBuffer(), m_ppu.getObjectBuffer());
     };
 
     const auto processTimer = [&](uint64_t& counter)
@@ -60,7 +62,6 @@ void Bus::start()
                 write(0xFF05, modulo);
                 const auto newInterruptFlag = Utils::setBit(read(0xFF0F), static_cast<int>(Interrupt::Timer));
                 write(0xFF0F, newInterruptFlag);
-                LOG("Timer interrupt");
             }
             else {
                 write(0xFF05, tima + 1);
@@ -89,7 +90,6 @@ void Bus::start()
 
                 const auto newInterruptFlag = Utils::setBit(read(0xFF0F), static_cast<int>(Interrupt::Serial));
                 write(0xFF0F, newInterruptFlag);
-                LOG("Serial interrupt");
             }
             counter -= 4;
         }
@@ -105,11 +105,11 @@ void Bus::start()
         processDivider(dividerCycleCounter);
         processSerial(serialCycleCounter);
 
-        const auto cycles = cpu.fetchDecodeExecute();
+        const auto cycles = m_cpu.fetchDecodeExecute();
 
         if (m_instructionCounter % 70 == 0) {
         //if (cycleCounter % 456 == 0) {
-            ppu.tick(cycles);
+            m_ppu.tick(cycles);
         }
         if (m_instructionCounter % 10000 == 0) {
             updateScreens();
@@ -126,10 +126,10 @@ void Bus::start()
 
 uint8_t Bus::read(uint16_t addr)
 {
-    auto& map = (bootRom && (addr < 0x100)) ? m_boot : m_map;
+    auto& map = (m_bootRom && (addr < 0x100)) ? m_boot : m_map;
 
     if (addr == 0xFF00) {
-        const auto joypad = screen.getJoypad();
+        const auto joypad = m_screen.getJoypad();
         const auto dPad = (joypad & 0xF0) >> 4;
         const auto buttons = joypad & 0x0F;
         const auto bits4to5 = static_cast<uint8_t>((m_map[0xFF00] & 0b0011'0000) >> 4);
@@ -168,7 +168,7 @@ void Bus::write(uint16_t addr, uint8_t value)
     }
 
     if (addr == 0xFF50)
-        bootRom = false;
+        m_bootRom = false;
 
     m_map[addr] = value;
 }

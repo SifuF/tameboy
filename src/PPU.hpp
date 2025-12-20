@@ -27,10 +27,10 @@ public:
     PPU(Bus* bus);
     void tick(uint32_t cycles);
     void updateDebugVramDisplays();
-    const std::vector<uint8_t>& getFrameBuffer() const { return frameBuffer.data; }
-    const std::vector<uint8_t>& getTileDataBuffer() const { return tileDataBuffer.data; }
-    const std::vector<uint8_t>& getTileMapBuffer() const { return tileMapBuffer.data; }
-    const std::vector<uint8_t>& getObjectBuffer() const { return objectBuffer.data; }
+    const std::vector<uint8_t>& getFrameBuffer() const { return m_frameBuffer.data; }
+    const std::vector<uint8_t>& getTileDataBuffer() const { return m_tileDataBuffer.data; }
+    const std::vector<uint8_t>& getTileMapBuffer() const { return m_tileMapBuffer.data; }
+    const std::vector<uint8_t>& getObjectBuffer() const { return m_objectBuffer.data; }
 
 private:
     std::array<uint8_t, 3> colorLookup(bool msb, bool lsb) const;
@@ -43,11 +43,11 @@ private:
     void verticalInterrupt();
     void statInterrupt();
 
-    Vbuffer frameBuffer;
-    Vbuffer tileDataBuffer;
-    Vbuffer tileMapBuffer;
-    Vbuffer objectBuffer;
-    Bus* bus{};
+    Vbuffer m_frameBuffer;
+    Vbuffer m_tileDataBuffer;
+    Vbuffer m_tileMapBuffer;
+    Vbuffer m_objectBuffer;
+    Bus* m_bus{};
 
     uint32_t m_dots;
     Mode m_mode = Mode::OAMSCAN;

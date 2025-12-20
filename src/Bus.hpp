@@ -20,21 +20,21 @@ public:
     uint8_t* getMap() { return m_map.get(); }
     void forceDraw()
     {
-        ppu.updateDebugVramDisplays();
-        screen.updateDebug(ppu.getTileDataBuffer(), ppu.getTileMapBuffer(), ppu.getObjectBuffer());
+        m_ppu.updateDebugVramDisplays();
+        m_screen.updateDebug(m_ppu.getTileDataBuffer(), m_ppu.getTileMapBuffer(), m_ppu.getObjectBuffer());
     }
 
 private:
     void readFile(char* buffer, const char* filename);
     void compareLogo();
 
-    bool bootRom = true;
+    bool m_bootRom = true;
     std::unique_ptr<uint8_t[]> m_boot = nullptr;
     std::unique_ptr<uint8_t[]> m_map = nullptr;
-    CPULR35902 cpu;
-    PPU ppu;
-    Screen screen;
-    Sound sound;
+    CPULR35902 m_cpu;
+    PPU m_ppu;
+    Screen m_screen;
+    Sound m_sound;
 
     uint64_t m_instructionCounter{};
     uint64_t m_cycleCounter{};

@@ -72,6 +72,18 @@ void CPULR35902::printOam()
         offset += 4;
     }
 }
+
+void CPULR35902::logInstruction(std::string str, bool newLine)
+{
+    std::cout << std::hex << str;
+    if (newLine) {
+        std::cout << '\n';
+    }
+    else {
+        std::cout << ' ';
+    }
+}
+
 void CPULR35902::reset()
 {
     AF.w = 0;

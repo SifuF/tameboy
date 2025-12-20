@@ -30,6 +30,7 @@ private:
     void initOpcodeHandlers();
     void processInterrupts();
 
+    void logInstruction(std::string str, bool newLine = true);
     std::string toHexString(int value);
     void processDebugger();
     void printState();
@@ -63,16 +64,6 @@ private:
     uint64_t m_instructionCounter{};
     uint64_t m_instructionCountOfInterest{std::numeric_limits<uint64_t>::max()};
     uint64_t m_pcOfInterest{std::numeric_limits<uint64_t>::max()};
-
-    void logInstruction(std::string str, bool newLine = true) {
-        std::cout << std::hex << str;
-        if (newLine) { 
-            std::cout << '\n';
-        }
-        else {
-            std::cout << ' ';
-        }
-    }
 
     void OP_00();
     void OP_01();

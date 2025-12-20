@@ -5,19 +5,19 @@
 
 #include <cstdlib>
 
-PPU::PPU(Bus* bus) : bus(bus), m_dots(0), m_mode(Mode::OAMSCAN), m_currentLine(0), m_dotsDrawn(0)
+PPU::PPU(Bus* bus) : m_bus(bus), m_dots(0), m_mode(Mode::OAMSCAN), m_currentLine(0), m_dotsDrawn(0)
 {
-    frameBuffer.data.resize(160 * 144 * 4); // 160 x 144 x 4 bytes RGBA
-    frameBuffer.width = 160;
+    m_frameBuffer.data.resize(160 * 144 * 4); // 160 x 144 x 4 bytes RGBA
+    m_frameBuffer.width = 160;
 
-    tileDataBuffer.data.resize(3 * 128 * 8 * 8 * 4); // 3 blocks, 128 tiles in each block, each tile 8x8 pixels, each pixel 4 bytes RGBA
-    tileDataBuffer.width = 128;
+    m_tileDataBuffer.data.resize(3 * 128 * 8 * 8 * 4); // 3 blocks, 128 tiles in each block, each tile 8x8 pixels, each pixel 4 bytes RGBA
+    m_tileDataBuffer.width = 128;
 
-    tileMapBuffer.data.resize(2 * 32 * 32 * 8 * 8 * 4); // 2 maps, 32x32 tiles in each map, each tile 8x8 pixels, each pixel 4 bytes RGBA
-    tileMapBuffer.width = 256;
+    m_tileMapBuffer.data.resize(2 * 32 * 32 * 8 * 8 * 4); // 2 maps, 32x32 tiles in each map, each tile 8x8 pixels, each pixel 4 bytes RGBA
+    m_tileMapBuffer.width = 256;
 
-    objectBuffer.data.resize(160 * 144 * 4); // same as frameBuffer
-    objectBuffer.width = 160;
+    m_objectBuffer.data.resize(160 * 144 * 4); // same as frameBuffer
+    m_objectBuffer.width = 160;
 }
 
 std::array<uint8_t, 3> PPU::colorLookup(bool msb, bool lsb) const
@@ -48,8 +48,8 @@ void PPU::drawObject(Vbuffer& buffer, XY pixelPos, uint16_t tile)
     }
 
     for (int j = 0; j < 8; ++j) { // 8 rows in a tile
-        const auto lsByte = bus->read(tileStart + 2 * j);
-        const auto msByte = bus->read(tileStart + 2 * j + 1);
+        const auto lsByte = m_bus->read(tileStart + 2 * j);
+        const auto msByte = m_bus->read(tileStart + 2 * j + 1);
         for (int i = 0; i < 8; ++i) { // one 8 tile row at a time
             const auto lsBit = static_cast<bool>(lsByte & (1 << (7 - i)));
             const auto msBit = static_cast<bool>(msByte & (1 << (7 - i)));
@@ -74,8 +74,8 @@ void PPU::drawAlignedTile(Vbuffer& buffer, XY tilePos, uint16_t tile, bool unsig
     }
     const auto screenStart = tilePos.first * 8 + tilePos.second * 8 * buffer.width;
     for (int j = 0; j < 8; ++j) { // 8 rows in a tile
-        const auto lsByte = bus->read(tileStart + 2 * j);
-        const auto msByte = bus->read(tileStart + 2 * j + 1);
+        const auto lsByte = m_bus->read(tileStart + 2 * j);
+        const auto msByte = m_bus->read(tileStart + 2 * j + 1);
         for (int i = 0; i < 8; ++i) { // one 8 tile row at a time
             const auto lsBit = static_cast<bool>(lsByte & (1 << (7 - i)));
             const auto msBit = static_cast<bool>(msByte & (1 << (7 - i)));
@@ -96,7 +96,7 @@ void PPU::drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, int LC) {
         for (int pixel = 0; pixel < 8; ++pixel) { // one 8 tile row at a time
             const auto xTile = ( (SCX + 8 * tileSlice + pixel) % 160 ) / 8;
             const auto yTile = ( (SCY + LC) % 256 ) / 8;
-            const auto tileNumber = bus->read(backgroundTileMapAddr + xTile + 32 * yTile);
+            const auto tileNumber = m_bus->read(backgroundTileMapAddr + xTile + 32 * yTile);
 
             uint16_t tileStart;
             if (unsignedMode) {
@@ -108,18 +108,18 @@ void PPU::drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, int LC) {
             }
 
             const auto lsByteIndex = tileStart + 2 * ((SCY + LC) % 8);
-            const auto lsByte = bus->read(lsByteIndex);
-            const auto msByte = bus->read(lsByteIndex + 1);
+            const auto lsByte = m_bus->read(lsByteIndex);
+            const auto msByte = m_bus->read(lsByteIndex + 1);
     
             const auto lsBit = static_cast<bool>(lsByte & (1 << (7 - pixel)));
             const auto msBit = static_cast<bool>(msByte & (1 << (7 - pixel)));
             const auto [r, g, b] = colorLookup(msBit, lsBit);
 
-            const int index = pixel + tileSlice * 8 + LC * frameBuffer.width;
-            frameBuffer.data[4 * index] = r;
-            frameBuffer.data[4 * index + 1] = g;
-            frameBuffer.data[4 * index + 2] = b;
-            frameBuffer.data[4 * index + 3] = 255;
+            const int index = pixel + tileSlice * 8 + LC * m_frameBuffer.width;
+            m_frameBuffer.data[4 * index] = r;
+            m_frameBuffer.data[4 * index + 1] = g;
+            m_frameBuffer.data[4 * index + 2] = b;
+            m_frameBuffer.data[4 * index + 3] = 255;
         }
     }
 };
@@ -128,10 +128,10 @@ void PPU::blitObjects(Vbuffer& buffer)
 {
     const auto numObjects = 40;
     for (int i = 0; i < numObjects; ++i) {
-        const auto Y = bus->read(0xFE00 + i * 4);
-        const auto X = bus->read(0xFE00 + (i * 4) + 1);
-        const auto TILE = bus->read(0xFE00 + (i * 4) + 2);
-        const auto FLAGS = bus->read(0xFE00 + (i * 4) + 3);
+        const auto Y = m_bus->read(0xFE00 + i * 4);
+        const auto X = m_bus->read(0xFE00 + (i * 4) + 1);
+        const auto TILE = m_bus->read(0xFE00 + (i * 4) + 2);
+        const auto FLAGS = m_bus->read(0xFE00 + (i * 4) + 3);
         drawObject(buffer, { X, Y }, TILE);
     }
 }
@@ -143,44 +143,42 @@ void PPU::updateDebugVramDisplays()
     constexpr int tileBlockHeight = 8;
     for (int j = 0; j < tileBlockHeight; ++j) {
         for (int i = 0; i < tileBlockWidth; ++i) {
-            drawAlignedTile(tileDataBuffer, { i, j }, i + tileBlockWidth * j); // block 0
-            drawAlignedTile(tileDataBuffer, { i, j + tileBlockHeight }, i + j * tileBlockWidth + tileBlockHeight * tileBlockWidth); // block 1
-            drawAlignedTile(tileDataBuffer, { i, j + 2 * tileBlockHeight }, i + j * tileBlockWidth + 2 * tileBlockHeight * tileBlockWidth); // block 2
+            drawAlignedTile(m_tileDataBuffer, { i, j }, i + tileBlockWidth * j); // block 0
+            drawAlignedTile(m_tileDataBuffer, { i, j + tileBlockHeight }, i + j * tileBlockWidth + tileBlockHeight * tileBlockWidth); // block 1
+            drawAlignedTile(m_tileDataBuffer, { i, j + 2 * tileBlockHeight }, i + j * tileBlockWidth + 2 * tileBlockHeight * tileBlockWidth); // block 2
         }
     }
 
     // tilemaps
-    const auto LCDC = bus->read(0xFF40);
+    const auto LCDC = m_bus->read(0xFF40);
     const auto unsignedMode = static_cast<bool>(LCDC & 0b00010000);
     constexpr int tileMapSize = 32;
     for (int j = 0; j < tileMapSize; ++j) {
         for (int i = 0; i < tileMapSize; ++i) {
-            drawAlignedTile(tileMapBuffer, { i, j }, bus->read(0x9800 + i + tileMapSize * j), unsignedMode); // background
-            drawAlignedTile(tileMapBuffer, { i, j + 32 }, bus->read(0x9C00 + i + tileMapSize * j), unsignedMode); // window
+            drawAlignedTile(m_tileMapBuffer, { i, j }, m_bus->read(0x9800 + i + tileMapSize * j), unsignedMode); // background
+            drawAlignedTile(m_tileMapBuffer, { i, j + 32 }, m_bus->read(0x9C00 + i + tileMapSize * j), unsignedMode); // window
         }
     }
 
     // objects
-    objectBuffer.clear();
-    blitObjects(objectBuffer);
+    m_objectBuffer.clear();
+    blitObjects(m_objectBuffer);
 }
 
 void PPU::verticalInterrupt()
 {
-    const auto newInterruptFlag = Utils::setBit(bus->read(0xFF0F), static_cast<int>(Interrupt::VBlank));
-    bus->write(0xFF0F, newInterruptFlag);
-    LOG("VBlank interrupt");
+    const auto newInterruptFlag = Utils::setBit(m_bus->read(0xFF0F), static_cast<int>(Interrupt::VBlank));
+    m_bus->write(0xFF0F, newInterruptFlag);
 }
 
 void PPU::statInterrupt()
 {
-    const auto newInterruptFlag = Utils::setBit(bus->read(0xFF0F), static_cast<int>(Interrupt::LCD));
-    bus->write(0xFF0F, newInterruptFlag);
-    LOG("LCD interrupt");
+    const auto newInterruptFlag = Utils::setBit(m_bus->read(0xFF0F), static_cast<int>(Interrupt::LCD));
+    m_bus->write(0xFF0F, newInterruptFlag);
 }
 
 void PPU::drawDots() {
-    const auto LCDC = bus->read(0xFF40);
+    const auto LCDC = m_bus->read(0xFF40);
 
     const auto enableLcdAndPpu = static_cast<bool>((LCDC & 0b1000'0000) >> 7);
     if (!enableLcdAndPpu) {
@@ -221,7 +219,7 @@ void PPU::tick(uint32_t cycles) {
     const uint32_t screenHeight = 144;
     const uint32_t vblankLines = 10;
 
-    const auto LCDC = bus->read(0xFF40);
+    const auto LCDC = m_bus->read(0xFF40);
     if (!static_cast<bool>((LCDC & 0b10000000) >> 7)) {
         return; // LCD and PPU disabled
     }
@@ -234,8 +232,8 @@ void PPU::tick(uint32_t cycles) {
     const auto enableObj = static_cast<bool>((LCDC & 0b0000'0010) >> 1);
     const auto enableBackgroundAndWindow = static_cast<bool>(LCDC & 0b0000'0001);
 
-    const auto SCY = bus->read(0xFF42);
-    const auto SCX = bus->read(0xFF43);
+    const auto SCY = m_bus->read(0xFF42);
+    const auto SCX = m_bus->read(0xFF43);
 
     /*
     if (m_mode == Mode::OAMSCAN && m_dots >= oamLength) {
@@ -263,25 +261,25 @@ void PPU::tick(uint32_t cycles) {
     }
     */
 
-    bus->write(0xFF44, m_currentLine);
+    m_bus->write(0xFF44, m_currentLine);
 
-    const auto LYC = bus->read(0xFF45);
-    const auto STAT = bus->read(0xFF41);
+    const auto LYC = m_bus->read(0xFF45);
+    const auto STAT = m_bus->read(0xFF41);
     if (m_currentLine == LYC) {
         const auto newSTAT = Utils::setBit(STAT, 2);
-        bus->write(0xFF41, newSTAT);
+        m_bus->write(0xFF41, newSTAT);
         if (STAT & 0b0100'0000) {
             statInterrupt();
         }
     }
     else {
         const auto newSTAT = Utils::clearBit(STAT, 2);
-        bus->write(0xFF41, newSTAT);
+        m_bus->write(0xFF41, newSTAT);
     }
     
     if (m_currentLine < 144) {
         drawLine(LCDC, SCX, SCY, m_currentLine);
-        blitObjects(frameBuffer); // TODO - line blit
+        blitObjects(m_frameBuffer); // TODO - line blit
     }
     if (m_currentLine == 144) {
         verticalInterrupt();
