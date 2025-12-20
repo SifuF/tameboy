@@ -23,6 +23,8 @@ Bus::Bus() : m_boot(std::make_unique<uint8_t[]>(0x100)),
 
     cpu.reset();
     compareLogo();
+
+    sound.run();
 }
 
 void Bus::start()

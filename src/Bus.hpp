@@ -3,6 +3,7 @@
 #include "CPULR35902.hpp"
 #include "PPU.hpp"
 #include "Screen.hpp"
+#include "Sound.hpp"
 
 #include <cassert>
 #include <iostream>
@@ -33,6 +34,7 @@ private:
     CPULR35902 cpu;
     PPU ppu;
     Screen screen;
+    Sound sound;
 
     uint64_t m_instructionCounter{};
     uint64_t m_cycleCounter{};

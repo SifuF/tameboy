@@ -46,4 +46,3 @@ private:
 
     uint8_t m_joypad{0xFF}; // down, up, left, right, start, select, b, a
 };
-

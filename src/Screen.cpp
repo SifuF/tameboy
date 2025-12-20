@@ -3,6 +3,7 @@
 #include "Utils.hpp"
 
 #include <SFML/Graphics.hpp>
+
 #include <iostream>
 
 Screen::Screen() {

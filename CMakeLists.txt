@@ -13,6 +13,7 @@ set(SOURCES
         src/CPULR35902.cpp
         src/PPU.cpp
         src/Screen.cpp
+        src/Sound.cpp
 )
 
 set(HEADERS
@@ -20,6 +21,7 @@ set(HEADERS
         src/CPULR35902.hpp
         src/PPU.hpp
         src/Screen.hpp
+        src/Sound.hpp
         src/Utils.hpp
 )
 
