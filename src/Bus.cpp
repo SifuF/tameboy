@@ -9,7 +9,8 @@ Bus::Bus() :
     m_map(std::make_unique<uint8_t[]>(0x10000)),
     m_cpu(this),
     m_ppu(this),
-    m_screen(this)
+    m_screen(this),
+    m_sound(this)
 {    
     std::memset((char*)m_boot.get(), 0, 0x100);
     std::memset((char*)m_map.get(), 0, 0x10000);

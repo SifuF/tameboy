@@ -1,10 +1,14 @@
+#pragma once
+
 #include <SFML/Audio.hpp>
 
 #include <vector>
 
+class Bus;
+
 class Sound : public sf::SoundStream {
 public:
-    Sound();
+    Sound(Bus* bus);
     void process(uint64_t cycleCounter);
 
 private:
@@ -15,4 +19,6 @@ private:
     std::size_t m_currentSample{};
     static constexpr uint32_t m_blockSize = 4000;
     static constexpr uint32_t m_sampleRate = 44100;
+
+    Bus* m_bus{};
 };

@@ -1,10 +1,12 @@
 #include "Sound.hpp"
 
+#include "Bus.hpp"
+
 #include <cmath>
 #include <numbers>
 #include <limits>
 
-Sound::Sound()
+Sound::Sound(Bus* bus) : m_bus(bus)
 {
     m_samples.resize(m_blockSize);
     for (auto& s : m_samples) {
@@ -97,4 +99,143 @@ void Sound::process(uint64_t cycleCounter)
     if (cycleCounter % 50000) {
         return;
     }
+
+    // master control
+    const auto NR52 = m_bus->read(0xFF26);
+    const auto audioOn = static_cast<bool>(NR52 & 0b1000'0000);
+    const auto channel4On = static_cast<bool>(NR52 & 0b0000'1000);
+    const auto channel3On = static_cast<bool>(NR52 & 0b0000'0100);
+    const auto channel2On = static_cast<bool>(NR52 & 0b0000'0010);
+    const auto channel1On = static_cast<bool>(NR52 & 0b0000'0001);
+
+    // panning
+    const auto NR51 = m_bus->read(0xFF25);
+    const auto channel4Left = static_cast<bool>(NR51 & 0b1000'0000);
+    const auto channel3Left = static_cast<bool>(NR51 & 0b0100'0000);
+    const auto channel2Left = static_cast<bool>(NR51 & 0b0010'0000);
+    const auto channel1Left = static_cast<bool>(NR51 & 0b0001'0000);
+    const auto channel4Right = static_cast<bool>(NR51 & 0b0000'1000);
+    const auto channel3Right = static_cast<bool>(NR51 & 0b0000'0100);
+    const auto channel2Right = static_cast<bool>(NR51 & 0b0000'0010);
+    const auto channel1Right = static_cast<bool>(NR51 & 0b0000'0001);
+
+    // master volume and VIN panning
+    const auto NR50 = m_bus->read(0xFF24);
+    const auto vinLeft = static_cast<bool>(NR50 & 0b1000'0000);
+    const auto vinRight = static_cast<bool>(NR50 & 0b0000'1000);
+    const auto leftVolume = static_cast<uint8_t>((NR50 >> 4) & 0b0000'0111);
+    const auto rightVolume = static_cast<uint8_t>(NR50 & 0b0000'0111);
+
+    /// channel 1 - pulse
+
+    // pulse with period sweep
+    const auto NR10 = m_bus->read(0xFF10);
+    const auto channel1Pace = static_cast<uint8_t>((NR10 >> 4) & 0b0000'0111);
+    const auto channel1Direction = static_cast<bool>(NR10 & 0b0000'1000);
+    const auto channel1IndividualStep = static_cast<uint8_t>(NR10 & 0b0000'0111);
+
+    // length timer and duty cycle
+    const auto NR11 = m_bus->read(0xFF11);
+    const auto channel1WaveDuty = static_cast<uint8_t>((NR11 >> 6) & 0b0000'0011);
+    const auto channel1InitialLengthTimer = static_cast<uint8_t>(NR11 & 0b011'1111);
+
+    // volume and envelope
+    const auto NR12 = m_bus->read(0xFF12);
+    const auto channel1InitialVolume = static_cast<uint8_t>((NR12 >> 4) & 0b0000'1111);
+    const auto channel1EnvDir = static_cast<bool>(NR12 & 0b0000'1000);
+    const auto channel1SweepPace = static_cast<uint8_t>(NR12 & 0b000'0111);
+
+    // period low
+    const auto NR13 = m_bus->read(0xFF13);
+    const auto channel1LowPeriod = static_cast<uint16_t>(NR13);
+
+    // period high and control
+    const auto NR14 = m_bus->read(0xFF14);
+    const auto channel1Trigger = static_cast<bool>(NR14 & 0b1000'0000);
+    const auto channel1LengthEnable = static_cast<bool>(NR14 & 0b0100'0000);
+    const auto channel1HighPeriod = static_cast<uint16_t>(NR14 & 0b000'0111);
+    const auto channel1Period = static_cast<uint16_t>((channel1HighPeriod << 8) | channel1LowPeriod);
+
+    /// channel 2 - pulse
+
+    // length timer and duty cycle
+    const auto NR21 = m_bus->read(0xFF16);
+    const auto channel2WaveDuty = static_cast<uint8_t>((NR21 >> 6) & 0b0000'0011);
+    const auto channel2InitialLengthTimer = static_cast<uint8_t>(NR21 & 0b011'1111);
+
+    // volume and envelope
+    const auto NR22 = m_bus->read(0xFF17);
+    const auto channel2InitialVolume = static_cast<uint8_t>((NR22 >> 4) & 0b0000'1111);
+    const auto channel2EnvDir = static_cast<bool>(NR22 & 0b0000'1000);
+    const auto channel2SweepPace = static_cast<uint8_t>(NR22 & 0b000'0111);
+
+    // period low
+    const auto NR23 = m_bus->read(0xFF18);
+    const auto channel2LowPeriod = static_cast<uint16_t>(NR23);
+
+    // period high and control
+    const auto NR24 = m_bus->read(0xFF19);
+    const auto channel2Trigger = static_cast<bool>(NR24 & 0b1000'0000);
+    const auto channel2LengthEnable = static_cast<bool>(NR24 & 0b0100'0000);
+    const auto channel2HighPeriod = static_cast<uint16_t>(NR24 & 0b000'0111);
+    const auto channel2Period = static_cast<uint16_t>((channel2HighPeriod << 8) | channel2LowPeriod);
+
+    // channel 3 - wave
+
+    // DAC enable
+    const auto NR30 = m_bus->read(0xFF1A);
+    const auto dacEnable = static_cast<bool>(NR30 & 0b1000'0000);
+
+    // length timer
+    const auto NR31 = m_bus->read(0xFF1B);
+    const auto channel3InitialLengthTimer = static_cast<uint8_t>(NR31);
+
+    // output level
+    const auto NR32 = m_bus->read(0xFF1B);
+    const auto channel3OutputLevel = static_cast<uint8_t>((NR32 >> 5) & 0b0000'0011);
+    auto testSample = 0;
+    switch (channel3OutputLevel) {
+        case 0: { testSample = 0; break; }
+        case 1: { break; }
+        case 2: { testSample >>= 1; break; }
+        case 3: { testSample >>= 2; break; }
+        default: { throw std::runtime_error("Unknown output level"); }
+    }
+
+    // period low
+    const auto NR33 = m_bus->read(0xFF1D);
+    const auto channel3LowPeriod = static_cast<uint16_t>(NR33);
+
+    // period high and control
+    const auto NR34 = m_bus->read(0xFF1E);
+    const auto channel3Trigger = static_cast<bool>(NR34 & 0b1000'0000);
+    const auto channel3LengthEnable = static_cast<bool>(NR34 & 0b0100'0000);
+    const auto channel3HighPeriod = static_cast<uint16_t>(NR34 & 0b000'0111);
+    const auto channel3Period = static_cast<uint16_t>((channel3HighPeriod << 8) | channel3LowPeriod);
+
+    // wave pattern ram
+    // FF30 to FF3F = 16 bytes = 32 samples
+
+    // channel 4 - noise
+
+    // length timer
+    const auto NR41 = m_bus->read(0xFF20);
+    const auto channel4InitialLengthTimer = static_cast<uint8_t>(NR41 & 0b011'1111);
+
+    // volume and envelope
+    const auto NR42 = m_bus->read(0xFF21);
+    const auto channel4InitialVolume = static_cast<uint8_t>((NR42 >> 4) & 0b0000'1111);
+    const auto channel4EnvDir = static_cast<bool>(NR42 & 0b0000'1000);
+    const auto channel4SweepPace = static_cast<uint8_t>(NR42 & 0b000'0111);
+
+    // period low
+    const auto NR43 = m_bus->read(0xFF22);
+    const auto channel4ClockShift = static_cast<uint8_t>((NR43 >> 4) & 0b0000'1111);
+    const auto channel4LfsrWidth = static_cast<bool>(NR43 & 0b0000'1000);
+    const auto channel4ClockDivider = static_cast<uint8_t>(NR43 & 0b000'0111);
+
+    // period high and control
+    const auto NR44 = m_bus->read(0xFF23);
+    const auto channel4Trigger = static_cast<bool>(NR44 & 0b1000'0000);
+    const auto channel4LengthEnable = static_cast<bool>(NR44 & 0b0100'0000);
 }
