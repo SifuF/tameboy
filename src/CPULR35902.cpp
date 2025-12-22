@@ -22,55 +22,15 @@ CPULR35902::CPULR35902(Bus* bus) : m_bus(bus)
 
 void CPULR35902::printState()
 {
-    auto* mem = m_bus->getMap();
     std::cout << std::hex << "CPU state:\n"
         << "AF=" << AF.w << " "
         << "BC=" << BC.w << " "
         << "DE=" << DE.w << " "
         << "HL=" << HL.w << " "
         << "SP=" << SP.w << " "
-        << "PC=" << PC.w << "\n"
+        << "PC=" << PC.w << "\n";
 
-        // Timer registers
-        << "TIMA(0xFF05)=" << static_cast<int>(*(mem + 0xFF05)) << " "  // Timer counter
-        << "TMA(0xFF06)=" << static_cast<int>(*(mem + 0xFF06)) << " "  // Timer modulo
-        << "TAC(0xFF07)=" << static_cast<int>(*(mem + 0xFF07)) << " "  // Timer control
-
-        // LCD control & status
-        << "LCDC(0xFF40)=" << static_cast<int>(*(mem + 0xFF40)) << " "  // LCD Control
-        << "STAT(0xFF41)=" << static_cast<int>(*(mem + 0xFF41)) << " "  // LCD Status
-        << "SCY(0xFF42)=" << static_cast<int>(*(mem + 0xFF42)) << " "  // Scroll Y
-        << "SCX(0xFF43)=" << static_cast<int>(*(mem + 0xFF43)) << " "  // Scroll X
-        << "LY(0xFF44)=" << static_cast<int>(*(mem + 0xFF44)) << " "  // LY
-
-        // More LCD / PPU registers
-        << "LYC(0xFF45)=" << static_cast<int>(*(mem + 0xFF45)) << " "  // LY Compare
-        << "BGP(0xFF47)=" << static_cast<int>(*(mem + 0xFF47)) << " "  // BG Palette Data
-        << "OBP0(0xFF48)=" << static_cast<int>(*(mem + 0xFF48)) << " "  // OBJ Palette 0 Data
-        << "OBP1(0xFF49)=" << static_cast<int>(*(mem + 0xFF49)) << " "  // OBJ Palette 1 Data
-        << "WY(0xFF4A)=" << static_cast<int>(*(mem + 0xFF4A)) << " "  // Window Y position
-        << "WX(0xFF4B)=" << static_cast<int>(*(mem + 0xFF4B)) << " "  // Window X position
-
-        // Interrupt Enable register
-        << "IE(0xFFFF)=" << static_cast<int>(*(mem + 0xFFFF)) << " "  // Interrupt Enable Flags
-        << "IF(0xFF0F)=" << static_cast<int>(*(mem + 0xFF0F)) << " "  // Interrupt Requsted Flags
-        << "\n";
-}
-
-void CPULR35902::printOam()
-{
-    auto* mem = m_bus->getMap();
-    auto offset = 0xFe00;
-    std::cout << "OAM:\n";
-
-    for (size_t i = 0; i < 40; ++i) {
-        std::cout << std::dec << i << '(' << std::hex << offset << ") "
-            << "Y=" << static_cast<int>(*(mem + offset))
-            << " X=" << static_cast<int>(*(mem + offset + 1))
-            << " Tile=" << static_cast<int>(*(mem + offset + 2))
-            << " Flags=" << static_cast<int>(*(mem + offset + 3)) << "\n";
-        offset += 4;
-    }
+    m_bus->printState();
 }
 
 void CPULR35902::logInstruction(std::string str, bool newLine)
@@ -208,7 +168,8 @@ R"(TameBoy Debugger v0.1
         X : run X instructions (dec)
         Enter : step single instruction
         s : dump CPU state
-        s : dump OAM
+        o : dump OAM
+        a : dump APU state
         pX : increment PC by X (0-9)
         cX : break at PC == X (hex)
         d : draw tile maps
@@ -230,7 +191,10 @@ R"(TameBoy Debugger v0.1
                 }
             }
             else if (str == "o") {
-                printOam();
+                m_bus->printOam();
+            }
+            else if (str == "a") {
+                m_bus->printAudio();
             }
             else if (str == "d") {
                 std::cout << "tile maps drawn" << std::endl;
@@ -241,7 +205,6 @@ R"(TameBoy Debugger v0.1
                 const auto addr = std::stoi(str.substr(1, end), nullptr, 16);
                 const auto& map = m_bus->getMap();
                 std::cout << std::hex << "0x" << addr << ": " << (int)map[addr] << std::endl;
-
             }
             else if (str[0] == 'c') {
                 const auto end = str.find_first_of(' ');

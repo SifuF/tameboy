@@ -83,7 +83,6 @@ bool Sound::onGetData(Chunk& data)
         m++;
     }
 
-
     data.samples = m_samples.data();
     data.sampleCount = m_samples.size();
     return true;
@@ -94,12 +93,8 @@ void Sound::onSeek(sf::Time timeOffset)
     throw std::runtime_error("Audio seek not supported");
 }
 
-void Sound::process(uint64_t cycleCounter)
+void Sound::printState()
 {
-    if (cycleCounter % 50000) {
-        return;
-    }
-
     // master control
     const auto NR52 = m_bus->read(0xFF26);
     const auto audioOn = static_cast<bool>(NR52 & 0b1000'0000);
@@ -238,4 +233,53 @@ void Sound::process(uint64_t cycleCounter)
     const auto NR44 = m_bus->read(0xFF23);
     const auto channel4Trigger = static_cast<bool>(NR44 & 0b1000'0000);
     const auto channel4LengthEnable = static_cast<bool>(NR44 & 0b0100'0000);
+
+    auto plotWaveRam = [&]() {
+        std::vector<std::string> chart(16, std::string(32, '.'));
+        for (int offset = 0; offset < 16; ++offset) {
+            const auto value = m_bus->read(0xFF30 + offset);
+            const auto msn = static_cast<uint8_t>(value >> 4);
+            const auto lsn = static_cast<uint8_t>(value & 0b0000'1111);
+            chart[15 - msn][2 * offset] = 'X';
+            chart[15 - lsn][2 * offset + 1] = 'X';
+        }
+        for (const auto& s : chart) {
+            std::cout << s << "\n";
+        }
+    };
+
+    std::cout << std::hex << "APU state:\n"
+        << "master: audioOn=" << audioOn << " ch4On=" << channel4On << " ch3On=" << channel3On << " ch2On=" << channel2On << " ch1On=" << channel1On << " "
+        << "ch4Left=" << channel4Left << " ch3Left=" << channel3Left << " ch2Leftn=" << channel2Left << " ch1Left=" << channel1Left << " "
+        << "ch4Right=" << channel4Right << " ch3Right=" << channel3Right << " ch2Right=" << channel2Right << " ch1Right=" << channel1Right << " "
+        << "vinLeft=" << vinLeft << " vinRight=" << vinRight << " leftVolume=" << (int)leftVolume << " rightVolume=" << (int)rightVolume << "\n"
+
+        << "channel1: pace=" << (int)channel1Pace << " direction=" << channel1Direction << " individualStep=" << (int)channel1IndividualStep
+        << " waveDuty=" << (int)channel1WaveDuty << " initialLengthTimer=" << (int)channel1InitialLengthTimer
+        << " initialVolume=" << (int)channel1InitialVolume << " envDir=" << channel1EnvDir << " sweepPace=" << (int)channel1SweepPace
+        << " trigger=" << channel1Trigger << " lengthEnable=" << channel1LengthEnable << " period=" << (int)channel1Period << "\n"
+
+        << "channel2: waveDuty=" << (int)channel2WaveDuty << " initialLengthTimer=" << (int)channel2InitialLengthTimer
+        << " initialVolume=" << (int)channel2InitialVolume << " envDir=" << channel2EnvDir << " sweepPace=" << (int)channel2SweepPace
+        << " trigger=" << channel2Trigger << " lengthEnable=" << channel2LengthEnable << " period=" << (int)channel2Period << "\n"
+
+        << "channel3: dacEnable=" << dacEnable << " initialLengthTimer=" << (int)channel3InitialLengthTimer
+        << " outputLevel=" << (int)channel3OutputLevel
+        << " trigger=" << channel3Trigger << " lengthEnable=" << channel3LengthEnable << " period=" << (int)channel3Period << "\n";
+
+    std::cout << "wave RAM: ";
+    for (int offset = 0; offset < 16; ++offset) {
+        const auto value = m_bus->read(0xFF30 + offset);
+        const auto msn = static_cast<uint8_t>(value >> 4);
+        const auto lsn = static_cast<uint8_t>(value & 0b0000'1111);
+        std::cout << std::hex << (int)msn << " " << (int)lsn << " ";
+    }
+    std::cout << "\n";
+    plotWaveRam();
+
+    std::cout << std::hex
+        << "channel4: initialLengthTimer=" << (int)channel4InitialLengthTimer
+        << " initialVolume=" << (int)channel4InitialVolume << " envDir=" << channel4EnvDir << " sweepPace=" << (int)channel4SweepPace
+        << " clockShift=" << (int)channel4ClockShift << " lfsrWidth=" << channel4LfsrWidth << " clockDivider=" << (int)channel4ClockDivider
+        << " trigger=" << (int)channel4Trigger << " lengthEnable=" << channel4LengthEnable << "\n";
 }

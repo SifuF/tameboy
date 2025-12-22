@@ -9,7 +9,7 @@ class Bus;
 class Sound : public sf::SoundStream {
 public:
     Sound(Bus* bus);
-    void process(uint64_t cycleCounter);
+    void printState();
 
 private:
     bool onGetData(Chunk& data) override;

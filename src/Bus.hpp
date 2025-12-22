@@ -18,6 +18,10 @@ public:
 
     // debug
     uint8_t* getMap() { return m_map.get(); }
+    void printState();
+    void printOam();
+    void printAudio();
+
     void forceDraw()
     {
         m_ppu.updateDebugVramDisplays();

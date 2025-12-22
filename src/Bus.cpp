@@ -103,7 +103,6 @@ void Bus::start()
         processTimer(timerCycleCounter);
         processDivider(dividerCycleCounter);
         processSerial(serialCycleCounter);
-        m_sound.process(m_cycleCounter);
 
         const auto cycles = m_cpu.fetchDecodeExecute();
 
@@ -197,4 +196,52 @@ void Bus::compareLogo()
             throw std::runtime_error("Logos don't match!");
         }
     }
+}
+
+void Bus::printState()
+{
+    std::cout << std::hex << "System registers:\n"
+        // Timer registers
+        << "TIMA(0xFF05)=" << static_cast<int>(m_map[0xFF05]) << " "  // Timer counter
+        << "TMA(0xFF06)=" << static_cast<int>(m_map[0xFF06]) << " "  // Timer modulo
+        << "TAC(0xFF07)=" << static_cast<int>(m_map[0xFF07]) << " "  // Timer control
+
+        // LCD control & status
+        << "LCDC(0xFF40)=" << static_cast<int>(m_map[0xFF40]) << " "  // LCD Control
+        << "STAT(0xFF41)=" << static_cast<int>(m_map[0xFF41]) << " "  // LCD Status
+        << "SCY(0xFF42)=" << static_cast<int>(m_map[0xFF42]) << " "  // Scroll Y
+        << "SCX(0xFF43)=" << static_cast<int>(m_map[0xFF43]) << " "  // Scroll X
+        << "LY(0xFF44)=" << static_cast<int>(m_map[0xFF44]) << " "  // LY
+
+        // More LCD / PPU registers
+        << "LYC(0xFF45)=" << static_cast<int>(m_map[0xFF45]) << " "  // LY Compare
+        << "BGP(0xFF47)=" << static_cast<int>(m_map[0xFF47]) << " "  // BG Palette Data
+        << "OBP0(0xFF48)=" << static_cast<int>(m_map[0xFF48]) << " "  // OBJ Palette 0 Data
+        << "OBP1(0xFF49)=" << static_cast<int>(m_map[0xFF49]) << " "  // OBJ Palette 1 Data
+        << "WY(0xFF4A)=" << static_cast<int>(m_map[0xFF4A]) << " "  // Window Y position
+        << "WX(0xFF4B)=" << static_cast<int>(m_map[0xFF4B]) << " "  // Window X position
+
+        // Interrupt Enable register
+        << "IE(0xFFFF)=" << static_cast<int>(m_map[0xFFFF]) << " "  // Interrupt Enable Flags
+        << "IF(0xFF0F)=" << static_cast<int>(m_map[0xFF0F]) << " "  // Interrupt Requsted Flags
+        << "\n";
+}
+
+void Bus::printOam()
+{
+    auto offset = 0xFe00;
+    std::cout << "OAM:\n";
+    for (size_t i = 0; i < 40; ++i) {
+        std::cout << std::dec << i << '(' << std::hex << offset << ") "
+            << "Y=" << static_cast<int>(m_map[offset])
+            << " X=" << static_cast<int>(m_map[offset + 1])
+            << " Tile=" << static_cast<int>(m_map[offset + 2])
+            << " Flags=" << static_cast<int>(m_map[offset + 3]) << "\n";
+        offset += 4;
+    }
+}
+
+void Bus::printAudio()
+{
+    m_sound.printState();
 }
