@@ -16,9 +16,9 @@ Bus::Bus() :
     std::memset((char*)m_map.get(), 0, 0x10000);
 
     readFile((char*)m_boot.get(), "../roms/DMG_ROM.bin");
-    readFile((char*)m_map.get(), "../roms/tetris_no_UpdateAudio.bin");
+    //readFile((char*)m_map.get(), "../roms/tetris_no_UpdateAudio.bin");
     //readFile((char*)m_map.get(), "../roms/cpu_instrs.gb");
-    //readFile((char*)m_map.get(), "../roms/tennis.bin");
+    readFile((char*)m_map.get(), "../roms/tennis.bin");
     //readFile((char*)m_map.get(), "../roms/Alleyway.bin");
     //readFile((char*)m_map.get(), "../roms/dr.bin");
     //readFile((char*)m_map.get(), "../roms/spot.gb");
@@ -35,6 +35,7 @@ void Bus::start()
         m_screen.update(m_ppu.getFrameBuffer());
         m_ppu.updateDebugVramDisplays();
         m_screen.updateDebug(m_ppu.getTileDataBuffer(), m_ppu.getTileMapBuffer(), m_ppu.getObjectBuffer());
+        //m_sound.printState();
     };
 
     const auto processTimer = [&](uint64_t& counter)
@@ -113,9 +114,10 @@ void Bus::start()
         if (m_instructionCounter % 10000 == 0) {
             updateScreens();
         }
-
+       
+        m_sound.tick(cycles);
         if (m_instructionCounter == 3000000) {
-            m_sound.play();
+            //m_sound.play();
         }
 
         m_instructionCounter++;

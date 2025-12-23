@@ -17,7 +17,7 @@ CPULR35902::CPULR35902(Bus* bus) : m_bus(bus)
     //0x2ca: call UpdateAudio
 
     //0x2cd: ldh a, [hJoyHeld]
-    //m_pcOfInterest = 0;
+    //m_pcOfInterest = 0x36b9;
 }
 
 void CPULR35902::printState()

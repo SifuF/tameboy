@@ -6,7 +6,12 @@
 #include <numbers>
 #include <limits>
 
-Sound::Sound(Bus* bus) : m_bus(bus)
+Sound::Sound(Bus* bus) :
+    m_bus(bus),
+    m_channel1(bus),
+    m_channel2(bus),
+    m_channel3(bus),
+    m_channel4(bus)
 {
     m_samples.resize(m_blockSize);
     for (auto& s : m_samples) {
@@ -93,6 +98,14 @@ void Sound::onSeek(sf::Time timeOffset)
     throw std::runtime_error("Audio seek not supported");
 }
 
+void Sound::tick(uint64_t cycles)
+{
+    m_channel1.tick(cycles);
+    m_channel2.tick(cycles);
+    m_channel3.tick(cycles);
+    m_channel4.tick(cycles);
+}
+
 void Sound::printState()
 {
     // master control
@@ -146,8 +159,8 @@ void Sound::printState()
 
     // period high and control
     const auto NR14 = m_bus->read(0xFF14);
-    const auto channel1Trigger = static_cast<bool>(NR14 & 0b1000'0000);
-    const auto channel1LengthEnable = static_cast<bool>(NR14 & 0b0100'0000);
+    const auto channel1Trigger = static_cast<bool>(NR14 & 0b1000'0000); // Turn it on/off
+    const auto channel1LengthEnable = static_cast<bool>(NR14 & 0b0100'0000); // length in NRX1
     const auto channel1HighPeriod = static_cast<uint16_t>(NR14 & 0b000'0111);
     const auto channel1Period = static_cast<uint16_t>((channel1HighPeriod << 8) | channel1LowPeriod);
 
@@ -248,6 +261,64 @@ void Sound::printState()
         }
     };
 
+    auto plotChannels = [&]() {
+        constexpr int delta = 5;
+        constexpr int samples = 32;
+        std::vector<std::string> chart(16, std::string(4 * (samples + delta), '.'));
+        for (int k = 1; k < 5; ++k) {
+            for (int j = 0; j < chart.size(); ++j) {
+                for (int i = k * samples + (k-1) * delta; i < k * (samples + delta); ++i) {
+                    chart[j][i] = ' ';
+                }
+            }
+        }
+
+        auto getDutyValue = [](uint8_t duty, uint8_t samples) {
+            switch (duty) {
+                case 0: { return samples >> 3; break; }
+                case 1: { return samples >> 2; break; }
+                case 2: { return samples >> 1; break; }
+                case 3: { return samples - (samples >> 2); break; }
+                default: { throw std::runtime_error("Invalid duty cycle value"); }
+            }
+        };
+
+        const auto step1 = getDutyValue(channel1WaveDuty, samples);
+        for (int i = 0; i < step1; ++i) {
+            chart[0][i] = 'X';
+        }
+        for (int i = 0; i < chart.size(); ++i) {
+            chart[i][step1] = 'X';
+        }
+        for (int i = 0; i < samples - step1; ++i) {
+            chart[chart.size() - 1][i + step1] = 'X';
+        }
+
+        const int ch2Start = samples + delta;
+        const auto step2 = getDutyValue(channel2WaveDuty, samples);
+        for (int i = 0; i < step2; ++i) {
+            chart[0][ch2Start + i] = 'X';
+        }
+        for (int i = 0; i < chart.size(); ++i) {
+            chart[i][ch2Start + step2] = 'X';
+        }
+        for (int i = 0; i < samples - step2; ++i) {
+            chart[chart.size() - 1][ch2Start + i + step2] = 'X';
+        }
+        
+        const int ch3Start = 2 * (samples + delta);
+        for (int offset = 0; offset < 16; ++offset) {
+            const auto value = m_bus->read(0xFF30 + offset);
+            const auto msn = static_cast<uint8_t>(value >> 4);
+            const auto lsn = static_cast<uint8_t>(value & 0b0000'1111);
+            chart[15 - msn][ch3Start + 2 * offset] = 'X';
+            chart[15 - lsn][ch3Start + 2 * offset + 1] = 'X';
+        }
+        for (const auto& s : chart) {
+            std::cout << s << "\n";
+        }
+    };
+
     std::cout << std::hex << "APU state:\n"
         << "master: audioOn=" << audioOn << " ch4On=" << channel4On << " ch3On=" << channel3On << " ch2On=" << channel2On << " ch1On=" << channel1On << " "
         << "ch4Left=" << channel4Left << " ch3Left=" << channel3Left << " ch2Leftn=" << channel2Left << " ch1Left=" << channel1Left << " "
@@ -275,11 +346,12 @@ void Sound::printState()
         std::cout << std::hex << (int)msn << " " << (int)lsn << " ";
     }
     std::cout << "\n";
-    plotWaveRam();
 
     std::cout << std::hex
         << "channel4: initialLengthTimer=" << (int)channel4InitialLengthTimer
         << " initialVolume=" << (int)channel4InitialVolume << " envDir=" << channel4EnvDir << " sweepPace=" << (int)channel4SweepPace
         << " clockShift=" << (int)channel4ClockShift << " lfsrWidth=" << channel4LfsrWidth << " clockDivider=" << (int)channel4ClockDivider
         << " trigger=" << (int)channel4Trigger << " lengthEnable=" << channel4LengthEnable << "\n";
+
+    plotChannels();
 }
