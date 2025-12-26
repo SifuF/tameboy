@@ -22,8 +22,15 @@ PPU::PPU(Bus* bus) : m_bus(bus), m_dots(0), m_mode(Mode::OAMSCAN), m_currentLine
 
 std::array<uint8_t, 3> PPU::colorLookup(bool msb, bool lsb) const
 {
-#define GREEN
-    switch ((static_cast<uint8_t>(msb) << 1) | static_cast<uint8_t>(lsb))
+//#define GREEN
+    const auto pallet = m_bus->read(0xFF47);
+    std::array<uint8_t, 4> colourForId{};
+    for (size_t i{}; i < colourForId.size(); ++i) {
+        colourForId[i] = static_cast<uint8_t>((pallet >> (2 * i)) & 0b0000'0011);
+    }
+
+    const auto id = (static_cast<uint8_t>(msb) << 1) | static_cast<uint8_t>(lsb);
+    switch (colourForId[id])
     {
 #ifdef GREEN
         case 0: return { 0x9B, 0xBC, 0x0F };
@@ -49,6 +56,7 @@ void PPU::drawObject(Vbuffer& buffer, XY pixelPos, uint16_t tile, uint8_t flags)
 
     const auto xFlip = static_cast<bool>(flags & 0b0010'0000);
     const auto yFlip = static_cast<bool>(flags & 0b0100'0000);
+    const auto priority = static_cast<bool>(flags & 0b1000'0000);
     for (int j = 0; j < 8; ++j) { // 8 rows in a tile
         const auto J = yFlip ? 8 - 1 - j : j;
         const auto lsByte = m_bus->read(tileStart + 2 * J);
@@ -58,10 +66,13 @@ void PPU::drawObject(Vbuffer& buffer, XY pixelPos, uint16_t tile, uint8_t flags)
             const auto lsBit = static_cast<bool>(lsByte & (1 << (7 - I)));
             const auto msBit = static_cast<bool>(msByte & (1 << (7 - I)));
             const auto [r, g, b] = colorLookup(msBit, lsBit);
-            buffer.data[screenStart + 4 * (i + j * buffer.width)] = r;
-            buffer.data[screenStart + 4 * (i + j * buffer.width) + 1] = g;
-            buffer.data[screenStart + 4 * (i + j * buffer.width) + 2] = b;
-            buffer.data[screenStart + 4 * (i + j * buffer.width) + 3] = 255;
+            const auto transparent = (msBit == false) && (lsBit == false);
+            if (!transparent) {
+                buffer.data[screenStart + 4 * (i + j * buffer.width)] = r;
+                buffer.data[screenStart + 4 * (i + j * buffer.width) + 1] = g;
+                buffer.data[screenStart + 4 * (i + j * buffer.width) + 2] = b;
+                buffer.data[screenStart + 4 * (i + j * buffer.width) + 3] = 255;
+            }
         }
     }
 };
@@ -98,7 +109,7 @@ void PPU::drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, int LC) {
     const auto backgroundTileMapAddr = static_cast<bool>(LCDC & 0b00001000) ? 0x9C00 : 0x9800; // 9800-9BFF : 9C00-9FFF (32x32 = 1024 bytes)
     for (int tileSlice = 0; tileSlice < 20; ++tileSlice) {   
         for (int pixel = 0; pixel < 8; ++pixel) { // one 8 tile row at a time
-            const auto xTile = ((SCX + 8 * tileSlice + pixel) % 160) / 8;
+            const auto xTile = ((SCX + 8 * tileSlice + pixel) % 256) / 8;
             const auto yTile = ((SCY + LC) % 256) / 8;
             const auto tileNumber = m_bus->read(backgroundTileMapAddr + xTile + 32 * yTile);
 

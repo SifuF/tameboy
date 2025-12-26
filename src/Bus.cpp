@@ -20,10 +20,10 @@ Bus::Bus() :
     //readFile((char*)m_map.get(), "../roms/tetris_no_UpdateAudio.bin");
     //readFile((char*)m_map.get(), "../roms/cpu_instrs.gb");
     //readFile((char*)m_map.get(), "../roms/tennis.bin");
-    //readFile((char*)m_map.get(), "../roms/Alleyway.bin");
+    readFile((char*)m_map.get(), "../roms/Alleyway.bin");
     //readFile((char*)m_map.get(), "../roms/dr.bin");
     //readFile((char*)m_map.get(), "../roms/spot.gb");
-    readFile((char*)m_map.get(), "../roms/taz.gb");
+    //readFile((char*)m_map.get(), "../roms/taz.gb");
 
     m_cpu.reset();
     compareLogo();
@@ -109,7 +109,7 @@ void Bus::start()
         const auto cycles = m_cpu.fetchDecodeExecute();
 
         if (m_instructionCounter % 70 == 0) {
-        //if (cycleCounter % 456 == 0) {
+        //if (m_cycleCounter % 456 == 0) {
             m_ppu.tick(cycles);
         }
         if (m_instructionCounter % 10000 == 0) {
