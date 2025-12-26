@@ -98,8 +98,8 @@ void PPU::drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, int LC) {
     const auto backgroundTileMapAddr = static_cast<bool>(LCDC & 0b00001000) ? 0x9C00 : 0x9800; // 9800-9BFF : 9C00-9FFF (32x32 = 1024 bytes)
     for (int tileSlice = 0; tileSlice < 20; ++tileSlice) {   
         for (int pixel = 0; pixel < 8; ++pixel) { // one 8 tile row at a time
-            const auto xTile = ( (SCX + 8 * tileSlice + pixel) % 160 ) / 8;
-            const auto yTile = ( (SCY + LC) % 256 ) / 8;
+            const auto xTile = ((SCX + 8 * tileSlice + pixel) % 160) / 8;
+            const auto yTile = ((SCY + LC) % 256) / 8;
             const auto tileNumber = m_bus->read(backgroundTileMapAddr + xTile + 32 * yTile);
 
             uint16_t tileStart;
@@ -115,8 +115,9 @@ void PPU::drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, int LC) {
             const auto lsByte = m_bus->read(lsByteIndex);
             const auto msByte = m_bus->read(lsByteIndex + 1);
     
-            const auto lsBit = static_cast<bool>(lsByte & (1 << (7 - pixel)));
-            const auto msBit = static_cast<bool>(msByte & (1 << (7 - pixel)));
+            const auto nonAlignedPixel = (pixel + SCX) % 8;
+            const auto lsBit = static_cast<bool>(lsByte & (1 << (7 - nonAlignedPixel)));
+            const auto msBit = static_cast<bool>(msByte & (1 << (7 - nonAlignedPixel)));
             const auto [r, g, b] = colorLookup(msBit, lsBit);
 
             const int index = pixel + tileSlice * 8 + LC * m_frameBuffer.width;
