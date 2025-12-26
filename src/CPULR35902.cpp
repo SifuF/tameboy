@@ -17,7 +17,8 @@ CPULR35902::CPULR35902(Bus* bus) : m_bus(bus)
     //0x2ca: call UpdateAudio
 
     //0x2cd: ldh a, [hJoyHeld]
-    //m_pcOfInterest = 0x36b9;
+    //m_pcOfInterest = 0x2ca;
+    //m_instructionCountOfInterest = 8300664;
 }
 
 void CPULR35902::printState()
@@ -210,6 +211,7 @@ R"(TameBoy Debugger v0.1
                 const auto end = str.find_first_of(' ');
                 m_pcOfInterest = std::stoi(str.substr(1, end), nullptr, 16);
                 m_debug = false;
+                m_pcSearch = true;
                 break;
 
             }
@@ -221,6 +223,7 @@ R"(TameBoy Debugger v0.1
                 std::cout << "running " << std::dec << numInstructions << std::hex << " instructions" << std::endl;
                 m_instructionCountOfInterest = m_instructionCounter + numInstructions;
                 m_debug = false;
+                m_pcSearch = false;
                 break;
             }
         }
@@ -237,7 +240,9 @@ uint64_t CPULR35902::fetchDecodeExecute()
 {
     const uint64_t Tstart = T;
 
-    if ((PC.w == m_pcOfInterest) || (m_instructionCounter == m_instructionCountOfInterest)) {
+    const auto breakAtThisPc = (PC.w == m_pcOfInterest) && m_pcSearch;
+    const auto breakAtThisInstruction = (m_instructionCounter == m_instructionCountOfInterest) && !m_pcSearch;
+    if (breakAtThisPc || breakAtThisInstruction) {
         m_debug = true;
     }
     
@@ -538,7 +543,7 @@ void CPULR35902::OP_26() {
     T += 8;
     HL.left = m_bus->read(PC.w);
     PC.w++;
-    if (m_debug) logInstruction("LD H, " + toHexString(HL.left));
+    if (m_debug) logInstruction("LD H, $" + toHexString(HL.left));
 }
 void CPULR35902::OP_27() { // TODO
     T += 4;
@@ -607,7 +612,7 @@ void CPULR35902::OP_28() {
 }
 void CPULR35902::OP_29() {
     T += 8;
-    const bool half = (HL.right + HL.right) > 0xFF;
+    const bool half = ((HL.w & 0x0FFF) + (HL.w & 0x0FFF)) > 0x0FFF;
     const bool carry = (HL.w + HL.w) > 0xFFFF;
     HL.w += HL.w;
     setFlags(-1, 0, half, carry);
@@ -725,7 +730,7 @@ void CPULR35902::OP_38() {
 }
 void CPULR35902::OP_39() {
     T += 8;
-    const bool half = (HL.right + SP.right) > 0xFF;
+    const bool half = ((HL.w & 0x0FFF) + (SP.w & 0x0FFF)) > 0x0FFF;
     const bool carry = (HL.w + SP.w) > 0xFFFF;
     HL.w += SP.w;
     setFlags(-1, 0, half, carry);

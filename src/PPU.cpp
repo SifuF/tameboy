@@ -39,7 +39,7 @@ std::array<uint8_t, 3> PPU::colorLookup(bool msb, bool lsb) const
     }
 };
 
-void PPU::drawObject(Vbuffer& buffer, XY pixelPos, uint16_t tile)
+void PPU::drawObject(Vbuffer& buffer, XY pixelPos, uint16_t tile, uint8_t flags)
 {
     const uint16_t tileStart = 0x8000 + tile * 16;
     const auto screenStart = (pixelPos.first - 8) * 4 + (pixelPos.second - 16) * buffer.width * 4;
@@ -47,12 +47,16 @@ void PPU::drawObject(Vbuffer& buffer, XY pixelPos, uint16_t tile)
         return;
     }
 
+    const auto xFlip = static_cast<bool>(flags & 0b0010'0000);
+    const auto yFlip = static_cast<bool>(flags & 0b0100'0000);
     for (int j = 0; j < 8; ++j) { // 8 rows in a tile
-        const auto lsByte = m_bus->read(tileStart + 2 * j);
-        const auto msByte = m_bus->read(tileStart + 2 * j + 1);
+        const auto J = yFlip ? 8 - 1 - j : j;
+        const auto lsByte = m_bus->read(tileStart + 2 * J);
+        const auto msByte = m_bus->read(tileStart + 2 * J + 1);
         for (int i = 0; i < 8; ++i) { // one 8 tile row at a time
-            const auto lsBit = static_cast<bool>(lsByte & (1 << (7 - i)));
-            const auto msBit = static_cast<bool>(msByte & (1 << (7 - i)));
+            const auto I = xFlip ? 8 - 1 - i : i;
+            const auto lsBit = static_cast<bool>(lsByte & (1 << (7 - I)));
+            const auto msBit = static_cast<bool>(msByte & (1 << (7 - I)));
             const auto [r, g, b] = colorLookup(msBit, lsBit);
             buffer.data[screenStart + 4 * (i + j * buffer.width)] = r;
             buffer.data[screenStart + 4 * (i + j * buffer.width) + 1] = g;
@@ -132,7 +136,7 @@ void PPU::blitObjects(Vbuffer& buffer)
         const auto X = m_bus->read(0xFE00 + (i * 4) + 1);
         const auto TILE = m_bus->read(0xFE00 + (i * 4) + 2);
         const auto FLAGS = m_bus->read(0xFE00 + (i * 4) + 3);
-        drawObject(buffer, { X, Y }, TILE);
+        drawObject(buffer, { X, Y }, TILE, FLAGS);
     }
 }
 

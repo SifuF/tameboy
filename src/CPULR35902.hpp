@@ -61,6 +61,7 @@ private:
     std::array<std::function<void()>, 256> m_prefixHandler;
 
     bool m_debug = false;
+    bool m_pcSearch = false;
     uint64_t m_instructionCounter{};
     uint64_t m_instructionCountOfInterest{std::numeric_limits<uint64_t>::max()};
     uint64_t m_pcOfInterest{std::numeric_limits<uint64_t>::max()};

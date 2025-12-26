@@ -35,7 +35,7 @@ public:
 private:
     std::array<uint8_t, 3> colorLookup(bool msb, bool lsb) const;
     void drawAlignedTile(Vbuffer& buffer, XY tilePos, uint16_t tile, bool unsignedMode = true);
-    void drawObject(Vbuffer& buffer, XY pos, uint16_t tile);
+    void drawObject(Vbuffer& buffer, XY pos, uint16_t tile, uint8_t flags);
     void drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, int LC);
     void drawDots();
     void blitObjects(Vbuffer& buffer);
