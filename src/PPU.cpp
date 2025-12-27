@@ -20,31 +20,12 @@ PPU::PPU(Bus* bus) : m_bus(bus), m_dots(0), m_mode(Mode::OAMSCAN), m_currentLine
     m_objectBuffer.width = 160;
 }
 
-std::array<uint8_t, 3> PPU::colorLookup(bool msb, bool lsb) const
+void PPU::updatePaletteLookup(uint8_t map)
 {
-#define GREEN
-    const auto pallet = m_bus->read(0xFF47);
-    std::array<uint8_t, 4> colourForId{};
-    for (size_t i{}; i < colourForId.size(); ++i) {
-        colourForId[i] = static_cast<uint8_t>((pallet >> (2 * i)) & 0b0000'0011);
+    for (size_t i{}; i < m_paletteLookup.size(); ++i) {
+        m_paletteLookup[i] = static_cast<uint8_t>((map >> (2 * i)) & 0b0000'0011);
     }
-
-    const auto id = (static_cast<uint8_t>(msb) << 1) | static_cast<uint8_t>(lsb);
-    switch (colourForId[id])
-    {
-#ifdef GREEN
-        case 0: return { 0x9B, 0xBC, 0x0F };
-        case 1: return { 0x8B, 0xAC, 0x0F };
-        case 2: return { 0x30, 0x62, 0x30 };
-        default: return { 0x0F, 0x38, 0x0F };
-#else
-        case 0: return { 255, 255, 255 };
-        case 1: return { 170, 170, 170 };
-        case 2: return { 80, 80, 80 };
-        default: return { 0, 0, 0 };
-#endif
-    }
-};
+}
 
 void PPU::drawObject(Vbuffer& buffer, XY pixelPos, uint16_t tile, uint8_t flags)
 {
@@ -65,9 +46,9 @@ void PPU::drawObject(Vbuffer& buffer, XY pixelPos, uint16_t tile, uint8_t flags)
             const auto I = xFlip ? 8 - 1 - i : i;
             const auto lsBit = static_cast<bool>(lsByte & (1 << (7 - I)));
             const auto msBit = static_cast<bool>(msByte & (1 << (7 - I)));
-            const auto [r, g, b] = colorLookup(msBit, lsBit);
-            const auto transparent = (msBit == false) && (lsBit == false);
-            if (!transparent) {
+            const auto id = (static_cast<uint8_t>(msBit) << 1) | static_cast<uint8_t>(lsBit);
+            const auto [r, g, b] = m_palette[m_paletteLookup[id]];
+            if (id) {
                 buffer.data[screenStart + 4 * (i + j * buffer.width)] = r;
                 buffer.data[screenStart + 4 * (i + j * buffer.width) + 1] = g;
                 buffer.data[screenStart + 4 * (i + j * buffer.width) + 2] = b;
@@ -94,7 +75,9 @@ void PPU::drawAlignedTile(Vbuffer& buffer, XY tilePos, uint16_t tile, bool unsig
         for (int i = 0; i < 8; ++i) { // one 8 tile row at a time
             const auto lsBit = static_cast<bool>(lsByte & (1 << (7 - i)));
             const auto msBit = static_cast<bool>(msByte & (1 << (7 - i)));
-            const auto [r, g, b] = colorLookup(msBit, lsBit);
+            const auto id = (static_cast<uint8_t>(msBit) << 1) | static_cast<uint8_t>(lsBit);
+            const auto [r, g, b] = m_palette[m_paletteLookup[id]];
+
             const int index = screenStart + i + j * buffer.width;
             buffer.data[4 * index] = r;
             buffer.data[4 * index + 1] = g;
@@ -148,7 +131,8 @@ void PPU::drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, uint8_t WX, uint8_t W
             const auto nonAlignedPixel = (pixel + scrollX) % 8;
             const auto lsBit = static_cast<bool>(lsByte & (1 << (7 - nonAlignedPixel)));
             const auto msBit = static_cast<bool>(msByte & (1 << (7 - nonAlignedPixel)));
-            const auto [r, g, b] = colorLookup(msBit, lsBit);
+            const auto id = (static_cast<uint8_t>(msBit) << 1) | static_cast<uint8_t>(lsBit);
+            const auto [r, g, b] = m_palette[m_paletteLookup[id]];
 
             const int index = pixel + tileSlice * 8 + LC * m_frameBuffer.width;
             m_frameBuffer.data[4 * index] = r;

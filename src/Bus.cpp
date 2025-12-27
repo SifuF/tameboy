@@ -19,11 +19,11 @@ Bus::Bus() :
     //readFile((char*)m_map.get(), "../roms/tetris.bin");
     //readFile((char*)m_map.get(), "../roms/tetris_no_UpdateAudio.bin");
     //readFile((char*)m_map.get(), "../roms/cpu_instrs.gb");
-    readFile((char*)m_map.get(), "../roms/tennis.bin");
+    //readFile((char*)m_map.get(), "../roms/tennis.bin");
     //readFile((char*)m_map.get(), "../roms/Alleyway.bin");
     //readFile((char*)m_map.get(), "../roms/dr.bin");
     //readFile((char*)m_map.get(), "../roms/spot.gb");
-    //readFile((char*)m_map.get(), "../roms/taz.gb");
+    readFile((char*)m_map.get(), "../roms/taz.gb");
 
     m_cpu.reset();
     compareLogo();
@@ -172,6 +172,9 @@ void Bus::write(uint16_t addr, uint8_t value)
         std::memcpy((m_map.get() + 0xFE00), (m_map.get() + src), 160);
         return;
     }
+
+    if (addr == 0xFF47) // Pallet
+        m_ppu.updatePaletteLookup(value);
 
     if (addr == 0xFF50)
         m_bootRom = false;
