@@ -22,7 +22,7 @@ PPU::PPU(Bus* bus) : m_bus(bus), m_dots(0), m_mode(Mode::OAMSCAN), m_currentLine
 
 std::array<uint8_t, 3> PPU::colorLookup(bool msb, bool lsb) const
 {
-//#define GREEN
+#define GREEN
     const auto pallet = m_bus->read(0xFF47);
     std::array<uint8_t, 4> colourForId{};
     for (size_t i{}; i < colourForId.size(); ++i) {
@@ -104,14 +104,33 @@ void PPU::drawAlignedTile(Vbuffer& buffer, XY tilePos, uint16_t tile, bool unsig
     }
 };
 
-void PPU::drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, int LC) {
-    const auto unsignedMode = static_cast<bool>(LCDC & 0b00010000);
-    const auto backgroundTileMapAddr = static_cast<bool>(LCDC & 0b00001000) ? 0x9C00 : 0x9800; // 9800-9BFF : 9C00-9FFF (32x32 = 1024 bytes)
-    for (int tileSlice = 0; tileSlice < 20; ++tileSlice) {   
+void PPU::drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, uint8_t WX, uint8_t WY, int LC) {
+    const auto unsignedMode = static_cast<bool>(LCDC & 0b0001'0000);
+    const auto backgroundTileMapAddr = static_cast<bool>(LCDC & 0b0000'1000) ? 0x9C00 : 0x9800; // 9800-9BFF : 9C00-9FFF (32x32 = 1024 bytes)
+    const auto windowTileMapAddr = static_cast<bool>(LCDC & 0b0100'0000) ? 0x9C00 : 0x9800;
+    const auto windowEnable = static_cast<bool>(LCDC & 0b0010'0000);
+    const auto backgroundAndWindowEnable = static_cast<bool>(LCDC & 0b0000'0001);
+
+    uint16_t tileMapAddr{};
+    uint8_t scrollX{};
+    uint8_t scrollY{};
+    //if (windowEnable && (LC >= WY)) { // TODO - window
+    if (false) {
+        tileMapAddr = windowTileMapAddr;
+        scrollX = WX - 7;
+        scrollY = LC - WY;
+    }
+    else {
+        tileMapAddr = backgroundTileMapAddr;
+        scrollX = SCX;
+        scrollY = SCY;
+    }
+
+    for (int tileSlice = 0; tileSlice < 20; ++tileSlice) {
         for (int pixel = 0; pixel < 8; ++pixel) { // one 8 tile row at a time
-            const auto xTile = ((SCX + 8 * tileSlice + pixel) % 256) / 8;
-            const auto yTile = ((SCY + LC) % 256) / 8;
-            const auto tileNumber = m_bus->read(backgroundTileMapAddr + xTile + 32 * yTile);
+            const auto xTile = ((scrollX + 8 * tileSlice + pixel) % 256) / 8;
+            const auto yTile = ((scrollY + LC) % 256) / 8;
+            const auto tileNumber = m_bus->read(tileMapAddr + xTile + 32 * yTile);
 
             uint16_t tileStart;
             if (unsignedMode) {
@@ -122,11 +141,11 @@ void PPU::drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, int LC) {
                 tileStart = 0x9000 + signedTile * 16;
             }
 
-            const auto lsByteIndex = tileStart + 2 * ((SCY + LC) % 8);
+            const auto lsByteIndex = tileStart + 2 * ((scrollY + LC) % 8);
             const auto lsByte = m_bus->read(lsByteIndex);
             const auto msByte = m_bus->read(lsByteIndex + 1);
     
-            const auto nonAlignedPixel = (pixel + SCX) % 8;
+            const auto nonAlignedPixel = (pixel + scrollX) % 8;
             const auto lsBit = static_cast<bool>(lsByte & (1 << (7 - nonAlignedPixel)));
             const auto msBit = static_cast<bool>(msByte & (1 << (7 - nonAlignedPixel)));
             const auto [r, g, b] = colorLookup(msBit, lsBit);
@@ -251,6 +270,9 @@ void PPU::tick(uint32_t cycles) {
     const auto SCY = m_bus->read(0xFF42);
     const auto SCX = m_bus->read(0xFF43);
 
+    const auto WY = m_bus->read(0xFF4A);
+    const auto WX = m_bus->read(0xFF4B);
+
     /*
     if (m_mode == Mode::OAMSCAN && m_dots >= oamLength) {
         m_mode = Mode::DRAW;
@@ -294,7 +316,7 @@ void PPU::tick(uint32_t cycles) {
     }
     
     if (m_currentLine < 144) {
-        drawLine(LCDC, SCX, SCY, m_currentLine);
+        drawLine(LCDC, SCX, SCY, WX, WY, m_currentLine);
         blitObjects(m_frameBuffer); // TODO - line blit
     }
     if (m_currentLine == 144) {
