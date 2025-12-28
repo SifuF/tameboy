@@ -32,7 +32,7 @@ private:
     void readFile(char* buffer, const char* filename);
     void compareLogo();
 
-    bool m_bootRom = true;
+    bool m_bootRom = false; // TODO
     std::unique_ptr<uint8_t[]> m_boot = nullptr;
     std::unique_ptr<uint8_t[]> m_map = nullptr;
     CPULR35902 m_cpu;

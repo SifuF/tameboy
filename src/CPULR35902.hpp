@@ -35,6 +35,7 @@ private:
     void processDebugger();
     void printState();
     void printOam();
+    void printTrace();
 
     union Register {
         uint16_t w;

@@ -3,6 +3,7 @@
 #include "Bus.hpp"
 
 #include <iostream>
+#include <fstream>
 #include <sstream>
 #include <string>
 
@@ -19,6 +20,29 @@ CPULR35902::CPULR35902(Bus* bus) : m_bus(bus)
     //0x2cd: ldh a, [hJoyHeld]
     //m_pcOfInterest = 0x2ca;
     //m_instructionCountOfInterest = 8300664;
+}
+
+void CPULR35902::printTrace()
+{
+    static std::ofstream fs("log.txt", std::ios::binary);
+
+    fs << std::hex
+        << "A:" << std::setw(2) << std::setfill('0') << (int)AF.left
+        << " F:" << std::setw(2) << std::setfill('0') << (int)AF.right
+        << " B:" << std::setw(2) << std::setfill('0') << (int)BC.left
+        << " C:" << std::setw(2) << std::setfill('0') << (int)BC.right
+        << " D:" << std::setw(2) << std::setfill('0') << (int)DE.left
+        << " E:" << std::setw(2) << std::setfill('0') << (int)DE.right
+        << " H:" << std::setw(2) << std::setfill('0') << (int)HL.left
+        << " L:" << std::setw(2) << std::setfill('0') << (int)HL.right
+        << " SP:" << std::setw(4) << std::setfill('0') << (int)SP.w
+        << " PC:" << std::setw(4) << std::setfill('0') << (int)PC.w
+        << " PCMEM:"
+        << std::setw(2) << std::setfill('0') << (int)m_bus->read(PC.w) << ","
+        << std::setw(2) << std::setfill('0') << (int)m_bus->read(PC.w + 1) << ","
+        << std::setw(2) << std::setfill('0') << (int)m_bus->read(PC.w + 2) << ","
+        << std::setw(2) << std::setfill('0') << (int)m_bus->read(PC.w + 3)
+        << std::endl;
 }
 
 void CPULR35902::printState()
@@ -47,12 +71,23 @@ void CPULR35902::logInstruction(std::string str, bool newLine)
 
 void CPULR35902::reset()
 {
-    AF.w = 0;
-    BC.w = 0;
-    DE.w = 0;
-    HL.w = 0;
-    SP.w = 0;
-    PC.w = 0x0;
+    //AF.w = 0;
+    //BC.w = 0;
+    //DE.w = 0;
+    //HL.w = 0;
+    //SP.w = 0;
+    //PC.w = 0x0;
+    
+    AF.left = 0x01;
+    AF.right = 0xB0;
+    BC.left = 0x00;
+    BC.right = 0x13;
+    DE.left = 0x00;
+    DE.right = 0xD8;
+    HL.left = 0x01;
+    HL.right = 0x4D;
+    SP.w = 0xFFFE;
+    PC.w = 0x0100;
 }
 
 void CPULR35902::setFlags(int Z, int  N, int  H, int C) 
@@ -238,6 +273,8 @@ R"(TameBoy Debugger v0.1
 
 uint64_t CPULR35902::fetchDecodeExecute()
 {
+    //printTrace();
+
     const uint64_t Tstart = T;
 
     const auto breakAtThisPc = (PC.w == m_pcOfInterest) && m_pcSearch;
@@ -348,7 +385,7 @@ void CPULR35902::OP_08() {
 }
 void CPULR35902::OP_09() {
     T += 8;
-    const bool half = (HL.right + BC.right) > 0xFF;
+    const bool half = ((HL.w & 0x0FFF) + (BC.w & 0x0FFF)) > 0x0FFF;
     const bool carry = (HL.w + BC.w) > 0xFFFF;
     HL.w += BC.w;
     setFlags(-1, 0, half, carry);
@@ -451,7 +488,7 @@ void CPULR35902::OP_18() {
 }
 void CPULR35902::OP_19() {
     T += 8;
-    const bool half = (HL.right + DE.right) > 0xFF;
+    const bool half = ((HL.w & 0x0FFF) + (DE.w & 0x0FFF)) > 0x0FFF;
     const bool carry = (HL.w + DE.w) > 0xFFFF;
     HL.w += DE.w;
     setFlags(-1, 0, half, carry);
@@ -676,8 +713,8 @@ void CPULR35902::OP_31() {
 }
 void CPULR35902::OP_32() {
     T += 8;
-    HL.w--;
     m_bus->write(HL.w, AF.left);
+    HL.w--;
     if (m_debug) logInstruction("LD (HL-), A");
 }
 void CPULR35902::OP_33() {
@@ -738,8 +775,8 @@ void CPULR35902::OP_39() {
 }
 void CPULR35902::OP_3A() {
     T += 8;
-    HL.w--;
     AF.left = m_bus->read(HL.w);
+    HL.w--;
     if (m_debug) logInstruction("LD A, (HL-)");
 }
 void CPULR35902::OP_3B() {
@@ -769,7 +806,8 @@ void CPULR35902::OP_3E() {
 }
 void CPULR35902::OP_3F() {
     T += 4;
-    setFlags(-1, 0, 0, 0);
+    const auto carry = getFlag(Flag::C);
+    setFlags(-1, 0, 0, !carry);
     if (m_debug) logInstruction("CCF");
 }
 void CPULR35902::OP_40() {
@@ -979,8 +1017,8 @@ void CPULR35902::OP_69() {
 }
 void CPULR35902::OP_6A() {
     T += 4;
-    BC.right = DE.left;
-    if (m_debug) logInstruction("LD C, D");
+    HL.right = DE.left;
+    if (m_debug) logInstruction("LD L, D");
 }
 void CPULR35902::OP_6B() {
     T += 4;
@@ -1337,9 +1375,12 @@ void CPULR35902::OP_9E() {
 }
 void CPULR35902::OP_9F() {
     T += 4;
-    const bool half = getFlag(Flag::C);
-    AF.left -= static_cast<uint8_t>(getFlag(Flag::C));
-    setFlags((AF.left == 0), 1, half, -1);
+    const auto carry = static_cast<uint8_t>(getFlag(Flag::C));
+    const uint8_t result = AF.left - AF.left - carry;
+    bool half = ((AF.left & 0xF) < ((AF.left & 0xF) + carry));
+    bool newCarry = (AF.left < (AF.left + carry));
+    AF.left = result;
+    setFlags(result == 0, 1, half, newCarry);
     if (m_debug) logInstruction("SBC A, A");
 }
 void CPULR35902::OP_A0() {
@@ -1718,7 +1759,7 @@ void CPULR35902::OP_D2() {
         T += 16;
         PC.w = addr;
     }
-    if (m_debug) logInstruction("RET NZ, $" + toHexString(addr));
+    if (m_debug) logInstruction("JP NC, $" + toHexString(addr));
 }
 void CPULR35902::OP_D3() {
     throw std::runtime_error("Illegal instruction D3");
@@ -1880,8 +1921,8 @@ void CPULR35902::OP_E8() {
     const auto unsignedValue = m_bus->read(PC.w);
     PC.w++;
     const auto value = static_cast<int8_t>(unsignedValue);
-    const bool carry = (SP.right + value) > 0xFF;   
     const bool half = ((SP.w & 0xF) + (value & 0xF)) > 0xF;
+    const bool carry = ((SP.w & 0xFF) + (value & 0xFF)) > 0xFF;
     SP.w += static_cast<int16_t>(value);
     setFlags(0, 0, half, carry);
     if (m_debug) logInstruction("ADD SP, $" + toHexString(value));
@@ -1976,8 +2017,8 @@ void CPULR35902::OP_F8() {
     const auto unsignedValue = m_bus->read(PC.w);
     PC.w++;
     const auto value = static_cast<int8_t>(unsignedValue);
-    const bool carry = (SP.right + value) > 0xFF;
     const bool half = ((SP.w & 0xF) + (value & 0xF)) > 0xF;
+    const bool carry = ((SP.w & 0xFF) + (value & 0xFF)) > 0xFF;
     HL.w = SP.w + static_cast<int16_t>(value);
     setFlags(0, 0, half, carry);
     if (m_debug) logInstruction("LD HL, SP + $" + toHexString(value));
@@ -2314,65 +2355,65 @@ void CPULR35902::PR_28() {
     T += 8;
     const auto msb = BC.left & 0b10000000;
     const auto lsb = BC.left & 0b00000001;
-    BC.left >>= 1;
+    BC.left = (BC.left >> 1) | msb;
     setFlags((BC.left == 0), 0, 0, lsb);
     if (m_debug) logInstruction("SRA B");
 }
 void CPULR35902::PR_29() {
     T += 8;
-    const auto msb = BC.left & 0b10000000;
+    const auto msb = BC.right & 0b10000000;
     const auto lsb = BC.right & 0b00000001;
-    BC.right >>= 1;
+    BC.right = (BC.right >> 1) | msb;
     setFlags((BC.right == 0), 0, 0, lsb);
     if (m_debug) logInstruction("SRA C");
 }
 void CPULR35902::PR_2A() {
     T += 8;
-    const auto msb = BC.left & 0b10000000;
+    const auto msb = DE.left & 0b10000000;
     const auto lsb = DE.left & 0b00000001;
-    DE.left >>= 1;
+    DE.left = (DE.left >> 1) | msb;
     setFlags((DE.left == 0), 0, 0, lsb);
     if (m_debug) logInstruction("SRA D");
 }
 void CPULR35902::PR_2B() {
     T += 8;
-    const auto msb = BC.left & 0b10000000;
+    const auto msb = DE.right & 0b10000000;
     const auto lsb = DE.right & 0b00000001;
-    DE.right >>= 1;
+    DE.right = (DE.right >> 1) | msb;
     setFlags((DE.right == 0), 0, 0, lsb);
     if (m_debug) logInstruction("SRA E");
 }
 void CPULR35902::PR_2C() {
     T += 8;
-    const auto msb = BC.left & 0b10000000;
+    const auto msb = HL.left & 0b10000000;
     const auto lsb = HL.left & 0b00000001;
-    HL.left >>= 1;
+    HL.left = (HL.left >> 1) | msb;
     setFlags((HL.left == 0), 0, 0, lsb);
     if (m_debug) logInstruction("SRA H");
 }
 void CPULR35902::PR_2D() {
     T += 8;
-    const auto msb = BC.left & 0b10000000;
+    const auto msb = HL.right & 0b10000000;
     const auto lsb = HL.right & 0b00000001;
-    HL.right >>= 1;
+    HL.right = (HL.right >> 1) | msb;
     setFlags((HL.right == 0), 0, 0, lsb);
     if (m_debug) logInstruction("SRA L");
 }
 void CPULR35902::PR_2E() {
     T += 16;
     auto value = m_bus->read(HL.w);
-    const auto msb = BC.left & 0b10000000;
+    const auto msb = value & 0b10000000;
     const auto lsb = value & 0b00000001;
-    value >>= 1;
+    value = (value >> 1) | msb;
     setFlags((value == 0), 0, 0, lsb);
     m_bus->write(HL.w, value);
     if (m_debug) logInstruction("SRA (HL)");
 }
 void CPULR35902::PR_2F() {
     T += 8;
-    const auto msb = BC.left & 0b10000000;
+    const auto msb = AF.left & 0b10000000;
     const auto lsb = AF.left & 0b00000001;
-    AF.left >>= 1;
+    AF.left = (AF.left >> 1) | msb;
     setFlags((AF.left == 0), 0, 0, lsb);
     if (m_debug) logInstruction("SRA A");
 }
@@ -2499,6 +2540,7 @@ void CPULR35902::PR_41() {
 void CPULR35902::PR_42() {
     T += 8;
     const auto zero = (DE.left & 0b00000001) == 0;
+    setFlags(zero, 0, 1, -1);
     if (m_debug) logInstruction("BIT 0, D");
 }
 void CPULR35902::PR_43() {

@@ -98,7 +98,6 @@ void PPU::drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, uint8_t WX, uint8_t W
     uint8_t scrollX{};
     uint8_t scrollY{};
     if (windowEnable && (LC >= WY)) {
-    // if (false) {
         tileMapAddr = windowTileMapAddr;
         scrollX = WX - 7;
         scrollY = -WY;
