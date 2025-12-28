@@ -10,19 +10,18 @@
 CPULR35902::CPULR35902(Bus* bus) : m_bus(bus)
 {
     initOpcodeHandlers();
+    //m_pcOfInterest = 0x2ca;
+    //m_instructionCountOfInterest = 8300664;
 
     //tetris
     //MainLoop::
     //0x2c4: call ReadJoypad
     //0x2c7: call.dispatch;
     //0x2ca: call UpdateAudio
-
     //0x2cd: ldh a, [hJoyHeld]
-    //m_pcOfInterest = 0x2ca;
-    //m_instructionCountOfInterest = 8300664;
 }
 
-void CPULR35902::printTrace()
+void CPULR35902::logTrace()
 {
     static std::ofstream fs("log.txt", std::ios::binary);
 
@@ -69,25 +68,52 @@ void CPULR35902::logInstruction(std::string str, bool newLine)
     }
 }
 
-void CPULR35902::reset()
+void CPULR35902::reset(bool bootRom)
 {
-    //AF.w = 0;
-    //BC.w = 0;
-    //DE.w = 0;
-    //HL.w = 0;
-    //SP.w = 0;
-    //PC.w = 0x0;
-    
-    AF.left = 0x01;
-    AF.right = 0xB0;
-    BC.left = 0x00;
-    BC.right = 0x13;
-    DE.left = 0x00;
-    DE.right = 0xD8;
-    HL.left = 0x01;
-    HL.right = 0x4D;
-    SP.w = 0xFFFE;
-    PC.w = 0x0100;
+    if (bootRom) {
+        AF.w = 0;
+        BC.w = 0;
+        DE.w = 0;
+        HL.w = 0;
+        SP.w = 0;
+        PC.w = 0x0;
+    }
+    else {
+        // Post bootrom state (partial)
+        AF.left = 0x01;
+        AF.right = 0xB0;
+        BC.left = 0x00;
+        BC.right = 0x13;
+        DE.left = 0x00;
+        DE.right = 0xD8;
+        HL.left = 0x01;
+        HL.right = 0x4D;
+        SP.w = 0xFFFE;
+        PC.w = 0x0100;
+
+        // Interrupts
+        m_interruptMasterEnable = false;
+        m_bus->write(0xFFFF, 0x00); // IE
+        m_bus->write(0xFF0F, 0xE1); // IF
+
+        // Timers
+        m_bus->write(0xFF05, 0x00); // TIMA
+        m_bus->write(0xFF06, 0x00); // TMA
+        m_bus->write(0xFF07, 0x00); // TAC
+
+        // LCD and graphics
+        m_bus->write(0xFF40, 0x91); // LCDC: BG/WIN enabled, display on
+        m_bus->write(0xFF41, 0x85); // STAT
+        m_bus->write(0xFF42, 0x00); // SCY
+        m_bus->write(0xFF43, 0x00); // SCX
+        m_bus->write(0xFF44, 0x00); // LY
+        m_bus->write(0xFF45, 0x00); // LYC
+        m_bus->write(0xFF47, 0xFC); // BGP
+        m_bus->write(0xFF48, 0xFF); // OBP0
+        m_bus->write(0xFF49, 0xFF); // OBP1
+        m_bus->write(0xFF4A, 0x00); // WY
+        m_bus->write(0xFF4B, 0x00); // WX
+    }
 }
 
 void CPULR35902::setFlags(int Z, int  N, int  H, int C) 
@@ -273,8 +299,7 @@ R"(TameBoy Debugger v0.1
 
 uint64_t CPULR35902::fetchDecodeExecute()
 {
-    //printTrace();
-
+    //logTrace();
     const uint64_t Tstart = T;
 
     const auto breakAtThisPc = (PC.w == m_pcOfInterest) && m_pcSearch;

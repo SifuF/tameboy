@@ -13,3 +13,4 @@ cmake --build .
 ##### Tile viewer:
 ![tile_data](img/tile_data.png)
 ![tile_maps](img/tile_maps.png)
+![objects](img/objects.png)

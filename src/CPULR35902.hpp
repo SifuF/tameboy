@@ -19,7 +19,7 @@ enum Flag {
 class CPULR35902 {
 public:
     CPULR35902(Bus* bus);
-    void reset(); 
+    void reset(bool bootRom);
     uint64_t fetchDecodeExecute();
  
 private:
@@ -35,7 +35,7 @@ private:
     void processDebugger();
     void printState();
     void printOam();
-    void printTrace();
+    void logTrace();
 
     union Register {
         uint16_t w;

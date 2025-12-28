@@ -4,7 +4,7 @@
 
 int main() {
     try{
-        Bus bus;
+        Bus bus(true);
         bus.start();
     }
     catch(std::runtime_error e) {

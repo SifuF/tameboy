@@ -11,7 +11,7 @@
 
 class Bus {
 public:
-    Bus();
+    Bus(bool bootRom = true);
     void start();
     uint8_t read(uint16_t addr);
     void write(uint16_t addr, uint8_t value);
@@ -32,7 +32,7 @@ private:
     void readFile(char* buffer, const char* filename);
     void compareLogo();
 
-    bool m_bootRom = false; // TODO
+    bool m_bootRom;
     std::unique_ptr<uint8_t[]> m_boot = nullptr;
     std::unique_ptr<uint8_t[]> m_map = nullptr;
     CPULR35902 m_cpu;
