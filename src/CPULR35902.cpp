@@ -10,7 +10,7 @@
 CPULR35902::CPULR35902(Bus* bus) : m_bus(bus)
 {
     initOpcodeHandlers();
-    //m_pcOfInterest = 0x2ca;
+    //m_pcOfInterest = 0x100;
     //m_instructionCountOfInterest = 8300664;
 
     //tetris

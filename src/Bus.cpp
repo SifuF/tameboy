@@ -16,7 +16,7 @@ Bus::Bus(bool bootRom) :
     std::memset((char*)m_boot.get(), 0, 0x100);
     std::memset((char*)m_map.get(), 0, 0x10000);
 
-    readFile((char*)m_boot.get(), "../roms/DMG_ROM.bin");
+    readFile((char*)m_boot.get(), "../roms/DMG_ROM_no_checksum.bin");
     //readFile((char*)m_map.get(), "../roms/tetris.bin");
     //readFile((char*)m_map.get(), "../roms/cpu_instrs.gb");
     //readFile((char*)m_map.get(), "../roms/blargg/11.gb");
@@ -24,7 +24,8 @@ Bus::Bus(bool bootRom) :
     //readFile((char*)m_map.get(), "../roms/Alleyway.bin");
     //readFile((char*)m_map.get(), "../roms/dr.bin");
     //readFile((char*)m_map.get(), "../roms/spot.gb");
-    readFile((char*)m_map.get(), "../roms/taz.gb");
+    //readFile((char*)m_map.get(), "../roms/taz.gb");
+    readFile((char*)m_map.get(), "../roms/balls.gb");
 
     m_cpu.reset(m_bootRom);
     if (m_bootRom) {
