@@ -19,13 +19,14 @@ Bus::Bus(bool bootRom) :
     readFile((char*)m_boot.get(), "../roms/DMG_ROM_no_checksum.bin");
     //readFile((char*)m_map.get(), "../roms/tetris.bin");
     //readFile((char*)m_map.get(), "../roms/cpu_instrs.gb");
-    //readFile((char*)m_map.get(), "../roms/blargg/11.gb");
+    //readFile((char*)m_map.get(), "../roms/blargg/cpu_instrs/1.gb");
+    //readFile((char*)m_map.get(), "../roms/blargg/instr_timing.gb");
     //readFile((char*)m_map.get(), "../roms/tennis.bin");
     //readFile((char*)m_map.get(), "../roms/Alleyway.bin");
     //readFile((char*)m_map.get(), "../roms/dr.bin");
     //readFile((char*)m_map.get(), "../roms/spot.gb");
-    //readFile((char*)m_map.get(), "../roms/taz.gb");
-    readFile((char*)m_map.get(), "../roms/balls.gb");
+    readFile((char*)m_map.get(), "../roms/taz.gb");
+    //readFile((char*)m_map.get(), "../roms/balls.gb");
 
     m_cpu.reset(m_bootRom);
     if (m_bootRom) {
@@ -111,20 +112,13 @@ void Bus::start()
         processSerial(serialCycleCounter);
 
         const auto cycles = m_cpu.fetchDecodeExecute();
+        m_ppu.tick(cycles);
+        m_sound.tick(cycles);
 
-        if (m_instructionCounter % 30 == 0) {
-        //if (m_cycleCounter % 456 == 0) {
-            m_ppu.tick(cycles);
-        }
         if (m_instructionCounter % 10000 == 0) {
             updateScreens();
         }
        
-        m_sound.tick(cycles);
-        if (m_instructionCounter == 3000000) {
-            //m_sound.play();
-        }
-
         m_instructionCounter++;
         
         m_cycleCounter += cycles;

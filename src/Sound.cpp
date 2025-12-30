@@ -104,6 +104,12 @@ void Sound::tick(uint64_t cycles)
     m_channel2.tick(cycles);
     m_channel3.tick(cycles);
     m_channel4.tick(cycles);
+
+    static bool once = true;
+    if (once) {
+        play();
+        once = false;
+    }
 }
 
 void Sound::printState()

@@ -315,7 +315,7 @@ uint64_t CPULR35902::fetchDecodeExecute()
     processInterrupts();
 
     if (m_halt || m_stop)
-        return 0;
+        return 4;
 
     const auto instruction = m_bus->read(PC.w);
     PC.w++;

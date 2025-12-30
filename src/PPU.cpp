@@ -131,7 +131,7 @@ void PPU::drawLine(uint8_t LCDC, uint8_t SCX, uint8_t SCY, uint8_t WX, uint8_t W
             const auto lsBit = static_cast<bool>(lsByte & (1 << (7 - nonAlignedPixel)));
             const auto msBit = static_cast<bool>(msByte & (1 << (7 - nonAlignedPixel)));
             const auto id = (static_cast<uint8_t>(msBit) << 1) | static_cast<uint8_t>(lsBit);
-            const auto [r, g, b] = m_palette[m_paletteLookup[id]];
+             const auto [r, g, b] = m_palette[m_paletteLookup[id]];
 
             const int index = pixel + tileSlice * 8 + LC * m_frameBuffer.width;
             m_frameBuffer.data[4 * index] = r;
@@ -282,31 +282,40 @@ void PPU::tick(uint32_t cycles) {
     }
     */
 
-    m_bus->write(0xFF44, m_currentLine);
+    auto advanceLine = [&]()
+    {
+        m_bus->write(0xFF44, m_currentLine);
 
-    const auto LYC = m_bus->read(0xFF45);
-    const auto STAT = m_bus->read(0xFF41);
-    if (m_currentLine == LYC) {
-        const auto newSTAT = Utils::setBit(STAT, 2);
-        m_bus->write(0xFF41, newSTAT);
-        if (STAT & 0b0100'0000) {
-            statInterrupt();
+        const auto LYC = m_bus->read(0xFF45);
+        const auto STAT = m_bus->read(0xFF41);
+        if (m_currentLine == LYC) {
+            const auto newSTAT = Utils::setBit(STAT, 2);
+            m_bus->write(0xFF41, newSTAT);
+            if (STAT & 0b0100'0000) {
+                statInterrupt();
+            }
         }
-    }
-    else {
-        const auto newSTAT = Utils::clearBit(STAT, 2);
-        m_bus->write(0xFF41, newSTAT);
-    }
+        else {
+            const auto newSTAT = Utils::clearBit(STAT, 2);
+            m_bus->write(0xFF41, newSTAT);
+        }
     
-    if (m_currentLine < 144) {
-        drawLine(LCDC, SCX, SCY, WX, WY, m_currentLine);
-        blitObjects(m_frameBuffer); // TODO - line blit
+        if (m_currentLine < 144) {
+            drawLine(LCDC, SCX, SCY, WX, WY, m_currentLine);
+            blitObjects(m_frameBuffer); // TODO - line blit
+        }
+        if (m_currentLine == 144) {
+            verticalInterrupt();
+        }
+        if (m_currentLine >= 153) {
+            m_currentLine = -1;
+        }
+        m_currentLine++;
+    };
+
+    m_cycleCounter += 1 * cycles;
+    while (m_cycleCounter >= 456) {
+        m_cycleCounter -= 456;
+        advanceLine();
     }
-    if (m_currentLine == 144) {
-        verticalInterrupt();
-    }
-    if (m_currentLine >= 153) {
-        m_currentLine = -1;
-    }
-    m_currentLine++;
 }
